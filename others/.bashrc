@@ -103,19 +103,17 @@ eval "$(pyenv init -)"
 
 rustvim() {
 	touch .vimspector.json
-	echo '
-{
+	echo '{
 	"configurations": {
 		"launch": {
 			"adapter": "CodeLLDB",
 			"configuration": {
 				"request": "launch",
-				"program": "./target/debug/deps/program"
+				"program": "./target/debug/program"
 			}
 		}
 	}
-}
-	' > .vimspector.json
+}' > .vimspector.json
 }
 
 # END OF ORIGINAL
