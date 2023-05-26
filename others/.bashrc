@@ -1,34 +1,8 @@
-# function print_centered {
-#      [[ $# == 0 ]] && return 1
-#
-#      declare -i TERM_COLS="$(tput cols)"
-#      declare -i str_len="${#1}"
-#      [[ $str_len -ge $TERM_COLS ]] && {
-#           echo -e "$1";
-#           return 0;
-#      }
-#
-#      declare -i filler_len="$(( (TERM_COLS - str_len) / 2 ))"
-#      [[ $# -ge 2 ]] && ch="${2:0:1}" || ch=" "
-#      filler=""
-#      for (( i = 0; i < filler_len; i++ )); do
-#           filler="${filler}${ch}"
-#      done
-#
-#      printf "\e[1;92m%s%s%s\e[m" "$filler" "$1" "$filler"
-#      [[ $(( (TERM_COLS - str_len) % 2 )) -ne 0 ]] && printf "%s" "${ch}"
-#      printf "\n"
-#
-#      return 0
-# }
-#
-# echo ""
-# print_centered " ░░     ░░ ░░░░░░░ ░░       ░░░░░░  ░░░░░░  ░░░    ░░░ ░░░░░░░     ░░░░░░   ░░░░░  ░░░    ░░ ░░ "
-# print_centered " ▒▒     ▒▒ ▒▒      ▒▒      ▒▒      ▒▒    ▒▒ ▒▒▒▒  ▒▒▒▒ ▒▒          ▒▒   ▒▒ ▒▒   ▒▒ ▒▒▒▒   ▒▒ ▒▒ "
-# print_centered " ▒▒  ▒  ▒▒ ▒▒▒▒▒   ▒▒      ▒▒      ▒▒    ▒▒ ▒▒ ▒▒▒▒ ▒▒ ▒▒▒▒▒       ▒▒   ▒▒ ▒▒▒▒▒▒▒ ▒▒ ▒▒  ▒▒ ▒▒ "
-# print_centered " ▓▓ ▓▓▓ ▓▓ ▓▓      ▓▓      ▓▓      ▓▓    ▓▓ ▓▓  ▓▓  ▓▓ ▓▓          ▓▓   ▓▓ ▓▓   ▓▓ ▓▓  ▓▓ ▓▓    "
-# print_centered "  ███ ███  ███████ ███████  ██████  ██████  ██      ██ ███████     ██████  ██   ██ ██   ████ ██ "
-# echo ""
+# enable color support of ls and also add handy aliases
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias egrep='egrep --color=auto'
 
 export PATH=$HOME/.cargo/bin:$HOME/Documents/randori/go/src/bin:/usr/local/go/bin:$PATH
 export GOPATH=$HOME/Documents/randori/go/src/
@@ -41,6 +15,7 @@ alias vi="nvim"
 alias v="nvim"
 alias l="lazygit"
 alias ss="systemctl suspend"
+alias ds="sudo systemctl start docker"
 
 # get current branch in git repo
 function parse_git_branch() {
@@ -121,3 +96,26 @@ __vte_prompt_command() {
 }
 
 [ -n "$BASH_VERSION" ] && PROMPT_COMMAND="__vte_prompt_command"
+. "$HOME/.cargo/env"
+export PYENV_ROOT="$HOME/.pyenv"
+command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+rustvim() {
+	touch .vimspector.json
+	echo '
+{
+	"configurations": {
+		"launch": {
+			"adapter": "CodeLLDB",
+			"configuration": {
+				"request": "launch",
+				"program": "./target/debug/deps/program"
+			}
+		}
+	}
+}
+	' > .vimspector.json
+}
+
+# END OF ORIGINAL
