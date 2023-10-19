@@ -1,13 +1,14 @@
 # enable color support of ls and also add handy aliases
-alias ls='ls --color=auto'
+alias ls='eza'
 alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/randori/go/src/bin:/usr/local/go/bin:$PATH
-export GOPATH=$HOME/Documents/randori/go/src/
+export PATH=$HOME/.cargo/bin:$HOME/Documents/randori/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$PATH
+export GOPATH=$HOME/Documents/ibm/go/src/
 
-export rand="cd $HOME/Documents/randori"
+export ibm="cd $HOME/Documents/ibm"
+export platform="cd $HOME/Documents/randori/skycrane/mnt/checkouts/randori-platform/src/python"
 export personal="cd $HOME/Documents/personal"
 
 alias vim="nvim"
@@ -15,7 +16,8 @@ alias vi="nvim"
 alias v="nvim"
 alias l="lazygit"
 alias ss="systemctl suspend"
-alias ds="sudo systemctl start docker"
+alias dstart="sudo systemctl start docker"
+alias dstop="sudo systemctl start docker"
 
 # get current branch in git repo
 function parse_git_branch() {
@@ -116,4 +118,19 @@ rustvim() {
 }' > .vimspector.json
 }
 
-# END OF ORIGINAL
+pythonvim() {
+	touch .vimspector.json
+	echo '{
+	"configurations": {
+		"launch": {
+			"adapter": "debugpy",
+			"filetypes": [ "python" ],
+			"configuration": {
+				"request": "launch",
+				"type": "python",
+				"program": "main.py"
+			}
+		}
+	}
+}' > .vimspector.json
+}
