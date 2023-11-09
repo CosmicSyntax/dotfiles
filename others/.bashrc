@@ -4,11 +4,10 @@ alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/randori/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$PATH
+export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$PATH
 export GOPATH=$HOME/Documents/ibm/go/src/
 
 export ibm="cd $HOME/Documents/ibm"
-export platform="cd $HOME/Documents/randori/skycrane/mnt/checkouts/randori-platform/src/python"
 export personal="cd $HOME/Documents/personal"
 
 alias vim="nvim"
