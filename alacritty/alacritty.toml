@@ -1,0 +1,60 @@
+[cursor.style]
+blinking = "Always"
+
+[font]
+size = 15.4
+
+[font.bold]
+family = "SFMono Nerd Font"
+style = "Regular"
+
+[font.italic]
+family = "SFMono Nerd Font"
+style = "Light Italic"
+
+[font.normal]
+family = "SFMono Nerd Font"
+style = "Light"
+
+[window]
+startup_mode = "Fullscreen"
+
+[window.padding]
+x = 0
+y = 0
+
+[keyboard]
+bindings = [
+	{ key = "T", mods = "Control|Shift", action = "CreateNewWindow" },
+]
+
+# Colors (Nord)
+# Default colors
+[colors.primary]
+background = '#2E3440'
+foreground = '#D8DEE9'
+
+# Normal colors
+[colors.normal]
+black   = '#3B4252'
+red     = '#BF616A'
+green   = '#A3BE8C'
+yellow  = '#EBCB8B'
+blue    = '#81A1C1'
+magenta = '#B48EAD'
+cyan    = '#88C0D0'
+white   = '#E5E9F0'
+
+# Bright colors
+[colors.bright]
+black   = '#4C566A'
+red     = '#BF616A'
+green   = '#A3BE8C'
+yellow  = '#EBCB8B'
+blue    = '#81A1C1'
+magenta = '#B48EAD'
+cyan    = '#8FBCBB'
+white   = '#ECEFF4'
+
+[mouse]
+hide_when_typing = true
