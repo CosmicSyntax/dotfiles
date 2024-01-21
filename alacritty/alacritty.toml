@@ -2,11 +2,11 @@
 blinking = "Always"
 
 [font]
-size = 15.4
+size = 13
 
 [font.bold]
 family = "SFMono Nerd Font"
-style = "Regular"
+style = "Bold"
 
 [font.italic]
 family = "SFMono Nerd Font"
@@ -17,7 +17,11 @@ family = "SFMono Nerd Font"
 style = "Light"
 
 [window]
-startup_mode = "Fullscreen"
+startup_mode = "Windowed"
+
+[window.dimensions]
+columns = 175
+lines = 45
 
 [window.padding]
 x = 0
