@@ -4,7 +4,7 @@ alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$PATH
+export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:/home/dchoi/Documents/personal/lua-language-server/bin:$PATH
 export GOPATH=$HOME/Documents/ibm/go/src/
 
 export ibm="cd $HOME/Documents/ibm"
@@ -17,6 +17,8 @@ alias l="lazygit"
 alias ss="systemctl suspend"
 alias dstart="sudo systemctl start docker"
 alias dstop="sudo systemctl start docker"
+alias dprune="docker system prune --all && docker volume prune --all && docker network prune"
+alias open="xdg-open"
 
 # get current branch in git repo
 function parse_git_branch() {
