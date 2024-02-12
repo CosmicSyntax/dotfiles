@@ -10,15 +10,21 @@ export GOPATH=$HOME/Documents/ibm/go/src/
 export ibm="cd $HOME/Documents/ibm"
 export personal="cd $HOME/Documents/personal"
 
-alias vim="nvim"
-alias vi="nvim"
-alias v="nvim"
-alias l="lazygit"
-alias ss="systemctl suspend"
+# docker specific alias
 alias dstart="sudo systemctl start docker"
 alias dstop="sudo systemctl start docker"
 alias dprune="docker system prune --all && docker volume prune --all && docker network prune"
+# fedora specific alias
+alias dnfclean="sudo dnf autoremove && sudo dnf clean all"
+alias dnfupdate="sudo dnf update --refresh"
+alias fpclean="sudo rm -rfv /var/tmp/flatpak-cache-*"
+# other alias
+alias l="lazygit"
 alias open="xdg-open"
+alias ss="systemctl suspend"
+alias vim="nvim"
+alias vi="nvim"
+alias v="nvim"
 
 # get current branch in git repo
 function parse_git_branch() {
