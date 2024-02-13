@@ -33,6 +33,7 @@ y = 0
 [keyboard]
 bindings = [
 	{ key = "T", mods = "Control|Shift", action = "CreateNewWindow" },
+	{ key = "F", mods = "Control|Shift", action = "ToggleFullscreen" },
 ]
 
 # Colors (Nord)
