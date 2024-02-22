@@ -17,7 +17,7 @@ alias pstop="podman machine stop"
 alias pprune="podman system prune --all && podman volume prune && podman network prune"
 # brew specific alias
 alias dnfclean="brew autoremove && brew cleanup --prune=all"
-alias dnfupdate="brew update --force"
+alias dnfupdate="brew upgrade --greedy"
 # other alias
 alias l="lazygit"
 alias ss="sudo pmset sleepnow"
@@ -140,3 +140,7 @@ pythonvim() {
 	}
 }' > .vimspector.json
 }
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
