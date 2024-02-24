@@ -4,7 +4,7 @@ return {
 	force_reverse_video_cursor = true,
 	color_scheme = "nord",
 	font = wezterm.font({ family = "SFMono Nerd Font", weight = "Light", harfbuzz_features = { "calt=0", "clig=0", "liga=0" } }),
-	font_size = 15,
+	font_size = 16,
 	font_rules = {
 		{
 			intensity = "Bold",
@@ -35,15 +35,26 @@ return {
 	enable_tab_bar = false,
 	window_decorations = "RESIZE",
 	window_padding = {
-		left = 0,
-		right = 0,
-		top = 0,
-		bottom = 0,
+		left = 5,
+		right = 5,
+		top = 5,
+		bottom = 5,
 	},
-	initial_rows = 40,
-	initial_cols = 150,
+	initial_rows = 50,
+	initial_cols = 160,
 	-- native_macos_fullscreen_mode = true,
 	exit_behavior = "Close",
 	hide_mouse_cursor_when_typing = true,
-	max_fps = 60,
+	default_cursor_style = "BlinkingBlock",
+	cursor_blink_rate = 800,
+	-- visual_bell = {
+	-- 	fade_in_function = 'EaseIn',
+	-- 	fade_in_duration_ms = 150,
+	-- 	fade_out_function = 'EaseOut',
+	-- 	fade_out_duration_ms = 150,
+	-- },
+	-- colors = {
+	-- 	visual_bell = '#3b4252',
+	-- },
+	max_fps = 120,
 }
