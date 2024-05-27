@@ -5,7 +5,7 @@ TERM = "xterm-256color"
 blinking = "Always"
 
 [font]
-size = 13
+size = 12
 
 [font.bold]
 family = "SFMono Nerd Font"
@@ -22,6 +22,7 @@ style = "Light"
 [window]
 startup_mode = "Windowed"
 decorations = "Buttonless"
+dynamic_padding = true
 
 [window.dimensions]
 columns = 175
@@ -29,7 +30,7 @@ lines = 50
 
 [window.padding]
 x = 5
-y = 5
+y = 0
 
 [keyboard]
 bindings = [
