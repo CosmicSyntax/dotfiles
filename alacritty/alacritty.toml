@@ -40,7 +40,7 @@ y = 0
 bindings = [
 	{ key = "T", mods = "Control|Shift", action = "CreateNewWindow" },
 	{ key = "F", mods = "Control|Shift", action = "ToggleFullscreen" },
-	{ key = "V", mods = "Control|Shift", action = "ToggleViMode" },
+	{ key = "v", mods = "Control", action = "ToggleViMode" },
 ]
 
 # Colors (Nord)
