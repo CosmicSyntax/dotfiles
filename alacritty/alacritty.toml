@@ -29,7 +29,7 @@ decorations = "None"
 dynamic_padding = true
 
 [window.dimensions]
-columns = 170
+columns = 175
 lines = 50
 
 [window.padding]
@@ -40,7 +40,6 @@ y = 0
 bindings = [
 	{ key = "T", mods = "Control|Shift", action = "CreateNewWindow" },
 	{ key = "F", mods = "Control|Shift", action = "ToggleFullscreen" },
-	{ key = "v", mods = "Control", action = "ToggleViMode" },
 ]
 
 # Colors (Nord)
