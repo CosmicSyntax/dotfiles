@@ -10,23 +10,20 @@ export GOPATH=$HOME/Documents/ibm/go/src/
 export ibm="cd $HOME/Documents/ibm"
 export personal="cd $HOME/Documents/personal"
 
-# docker specific alias
-alias dstart="sudo systemctl start docker"
-alias dstop="sudo systemctl start docker"
-alias dprune="docker system prune --all && docker volume prune --all && docker network prune"
+# podman specific alias
+alias pprune="podman system prune -af && podman volume prune -f && podman network prune -f"
 # fedora specific alias
 alias dnfclean="sudo dnf autoremove && sudo dnf clean all"
 alias dnfupdate="sudo dnf update --refresh"
 alias fpclean="sudo rm -rfv /var/tmp/flatpak-cache-*"
 # other alias
-alias l="lazygit"
 alias open="xdg-open"
 alias ss="systemctl suspend"
 alias vim="nvim"
 alias vi="nvim"
 alias v="nvim"
 # cargo binary update
-alias cupdate="cargo install eza bottom git-delta ripgrep tree-sitter-cli cargo-watch cargo-audit cargo-cache cargo-llvm-cov fd-find just"
+alias cupdate="cargo install eza bottom git-delta ripgrep tree-sitter-cli bacon cargo-audit cargo-cache cargo-llvm-cov fd-find just"
 alias cclean="cargo cache trim --limit 0M"
 
 # get current branch in git repo
