@@ -1,10 +1,12 @@
+# enter vi mode
+set -o vi
 # enable color support of ls and also add handy aliases
 alias ls='eza'
 alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$HOME/.zig:$PATH
+export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$HOME/Documents/personal/zig/zls/zig-out/bin:$PATH
 export GOPATH=$HOME/Documents/ibm/go/src/
 
 export ibm="cd $HOME/Documents/ibm"
@@ -25,6 +27,8 @@ alias v="nvim"
 # cargo binary update
 alias cupdate="cargo install eza bottom git-delta ripgrep tree-sitter-cli bacon cargo-audit cargo-cache cargo-llvm-cov fd-find just"
 alias cclean="cargo cache trim --limit 0M"
+
+export EDITOR=nvim
 
 # get current branch in git repo
 function parse_git_branch() {
