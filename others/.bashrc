@@ -6,7 +6,7 @@ alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$HOME/Documents/personal/zig/zls/zig-out/bin:$PATH
+export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$PATH
 export GOPATH=$HOME/Documents/ibm/go/src/
 
 export ibm="cd $HOME/Documents/ibm"
@@ -25,7 +25,7 @@ alias vim="nvim"
 alias vi="nvim"
 alias v="nvim"
 # cargo binary update
-alias cupdate="cargo install eza bottom git-delta ripgrep tree-sitter-cli bacon cargo-audit cargo-cache cargo-llvm-cov fd-find just"
+alias cupdate="cargo install eza bottom ripgrep tree-sitter-cli bacon cargo-audit cargo-cache cargo-llvm-cov fd-find just"
 alias cclean="cargo cache trim --limit 0M"
 
 export EDITOR=nvim
@@ -124,6 +124,16 @@ rustvim() {
 				"request": "launch",
 				"program": "./target/debug/program"
 			}
+		},
+		"attach": {
+			"adapter": "CodeLLDB",
+			"filetypes": [ "rust", "c", "cpp", "jai" ],
+			"configuration": {
+				"request": "attach",
+				"program": "${workspaceRoot}/${fileBasenameNoExtension}",
+				"PID": "${PID}",
+				"sourceLanguages": [ "rust" ]
+			}
 		}
 	}
 }' > .vimspector.json
@@ -140,6 +150,34 @@ pythonvim() {
 				"request": "launch",
 				"type": "python",
 				"program": "main.py"
+			}
+		}
+	}
+}' > .vimspector.json
+}
+
+govim() {
+	touch .vimspector.json
+	echo '{
+	"configurations": {
+		"Run debug": {
+			"type": "go",
+			"adapter": "vscode-go",
+			"configuration": {
+				"request": "launch",
+				"program": "${fileDirname}",
+				"mode": "debug",
+				"dlvToolPath": "/home/dchoi/Documents/ibm/go/src/bin/dlv"
+			}
+		},
+		"Run test": {
+			"adapter": "vscode-go",
+			"type": "go",
+			"configuration": {
+				"request": "launch",
+				"program": "${fileDirname}",
+				"mode": "test",
+				"dlvToolPath": "/home/dchoi/Documents/ibm/go/src/bin/dlv"
 			}
 		}
 	}
