@@ -6,7 +6,7 @@ alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$PATH
+export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:/home/dchoi/Documents/ibm/oc/lua/bin:$PATH
 export GOPATH=$HOME/Documents/ibm/go/src/
 
 export ibm="cd $HOME/Documents/ibm"
@@ -133,6 +133,31 @@ rustvim() {
 				"program": "${workspaceRoot}/${fileBasenameNoExtension}",
 				"PID": "${PID}",
 				"sourceLanguages": [ "rust" ]
+			}
+		}
+	}
+}' > .vimspector.json
+}
+
+zigvim() {
+	touch .vimspector.json
+	echo '{
+	"configurations": {
+		"launch": {
+			"adapter": "CodeLLDB",
+			"configuration": {
+				"request": "launch",
+				"program": "./zig-out/bin/program"
+			}
+		},
+		"attach": {
+			"adapter": "CodeLLDB",
+			"filetypes": [ "rust", "c", "cpp", "jai" ],
+			"configuration": {
+				"request": "attach",
+				"program": "${workspaceRoot}/${fileBasenameNoExtension}",
+				"PID": "${PID}",
+				"sourceLanguages": [ "zig" ]
 			}
 		}
 	}
