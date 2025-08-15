@@ -187,7 +187,7 @@ govim() {
 	"configurations": {
 		"Run debug": {
 			"type": "go",
-			"adapter": "vscode-go",
+			"adapter": "delve",
 			"configuration": {
 				"request": "launch",
 				"program": "${fileDirname}",
@@ -196,7 +196,7 @@ govim() {
 			}
 		},
 		"Run test": {
-			"adapter": "vscode-go",
+			"adapter": "delve",
 			"type": "go",
 			"configuration": {
 				"request": "launch",
