@@ -122,7 +122,7 @@ rustvim() {
 			"adapter": "CodeLLDB",
 			"configuration": {
 				"request": "launch",
-				"program": "./target/debug/program"
+				"program": "./target/debug/${fileDirname}"
 			}
 		},
 		"attach": {
@@ -147,7 +147,7 @@ zigvim() {
 			"adapter": "CodeLLDB",
 			"configuration": {
 				"request": "launch",
-				"program": "./zig-out/bin/program"
+				"program": "./zig-out/bin/${fileDirname}"
 			}
 		},
 		"attach": {
