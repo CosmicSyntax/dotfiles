@@ -122,7 +122,7 @@ rustvim() {
 			"adapter": "CodeLLDB",
 			"configuration": {
 				"request": "launch",
-				"program": "./target/debug/program"
+				"program": "${workspaceFolder}/target/debug/${projectFolderBasename}"
 			}
 		},
 		"attach": {
@@ -147,7 +147,7 @@ zigvim() {
 			"adapter": "CodeLLDB",
 			"configuration": {
 				"request": "launch",
-				"program": "./zig-out/bin/program"
+				"program": "${workspaceFolder}/zig-out/bin/${projectFolderBasename}"
 			}
 		},
 		"attach": {
@@ -192,7 +192,6 @@ govim() {
 				"request": "launch",
 				"program": "${fileDirname}",
 				"mode": "debug",
-				"dlvToolPath": "/home/dchoi/Documents/ibm/go/src/bin/dlv"
 			}
 		},
 		"Run test": {
@@ -202,7 +201,6 @@ govim() {
 				"request": "launch",
 				"program": "${fileDirname}",
 				"mode": "test",
-				"dlvToolPath": "/home/dchoi/Documents/ibm/go/src/bin/dlv"
 			}
 		}
 	}
