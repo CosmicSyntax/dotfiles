@@ -191,7 +191,7 @@ govim() {
 			"configuration": {
 				"request": "launch",
 				"program": "${fileDirname}",
-				"mode": "debug",
+				"mode": "debug"
 			}
 		},
 		"Run test": {
@@ -200,7 +200,7 @@ govim() {
 			"configuration": {
 				"request": "launch",
 				"program": "${fileDirname}",
-				"mode": "test",
+				"mode": "test"
 			}
 		}
 	}
