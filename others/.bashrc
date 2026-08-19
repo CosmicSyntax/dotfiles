@@ -6,7 +6,7 @@ alias grep='grep --color=auto'
 alias fgrep='fgrep --color=auto'
 alias egrep='egrep --color=auto'
 
-export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$HOME/Documents/ibm/oc/zig:/home/dchoi/Documents/ibm/oc/lua/bin:$PATH
+export PATH=$HOME/.cargo/bin:$HOME/Documents/ibm/go/src/bin:/usr/local/go/bin:$HOME/.local/bin:$HOME/.local/nvim/bin:$HOME/Documents/ibm/oc:$HOME/.local/zig:$PATH
 export GOPATH=$HOME/Documents/ibm/go/src/
 
 export ibm="cd $HOME/Documents/ibm"
@@ -25,7 +25,19 @@ alias vim="nvim"
 alias vi="nvim"
 alias v="nvim"
 # cargo binary update
-alias cupdate="cargo install eza bottom ripgrep tree-sitter-cli bacon cargo-audit cargo-cache cargo-llvm-cov fd-find just"
+alias cupdate="for pkg in \
+  eza \
+  ripgrep \
+  tree-sitter-cli \
+  bacon \
+  cargo-audit \
+  cargo-cache \
+  cargo-llvm-cov \
+  fd-find \
+  just \
+  websocat \
+  bottom; \
+do cargo install \$pkg; done"
 alias cclean="cargo cache trim --limit 0M"
 
 export EDITOR=nvim
@@ -110,6 +122,7 @@ __vte_prompt_command() {
 
 [ -n "$BASH_VERSION" ] && PROMPT_COMMAND="__vte_prompt_command"
 . "$HOME/.cargo/env"
+
 export PYENV_ROOT="$HOME/.pyenv"
 command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
