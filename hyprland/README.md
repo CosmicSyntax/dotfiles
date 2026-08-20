@@ -1,27 +1,47 @@
 ```markdown
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes full system package installation, GNOME component removal, `greetd` terminal login configuration, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations, and browser-to-file-manager bridges.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations, and browser-to-file-manager bridges.
 
 ---
 
-## Phase 1: Removing Conflicting GNOME Components & Display Managers
+## Phase 1: Purging GNOME Desktop Infrastructure & Display Managers
 
-Before setting up a custom Wayland environment, remove competing graphical managers and background services to ensure a clean boot sequence without screen freezing or portal conflicts.
+To completely strip out the core GNOME Desktop Environment (DE) shell and its background session components while leaving standalone user utilities untouched, run the following commands:
 
-### 1. Disable and Remove GDM (GNOME Display Manager)
+### 1. Remove Core GNOME Shell, Mutter, and GDM
+Tear out `gnome-shell`, session targets, Mutter window management infrastructure, GDM, and competing portals:
 ```bash
 sudo systemctl disable gdm
-sudo dnf remove gdm
+sudo dnf remove \
+    gnome-shell \
+    mutter \
+    gnome-session \
+    gnome-session-wayland \
+    gdm \
+    xdg-desktop-portal-gnome
 
 ```
 
-### 2. Remove Conflicting Portals
+### 2. Remove Unused GNOME Panels & Background Daemons
 
-Remove GNOME's desktop portal to prevent it from intercepting screen-sharing requests:
+Remove background shell extensions, desktop backgrounds, and initial setup wizards:
 
 ```bash
-sudo dnf remove xdg-desktop-portal-gnome
+sudo dnf remove \
+    "gnome-shell-extension*" \
+    gnome-backgrounds \
+    gnome-initial-setup \
+    gnome-user-docs
+
+```
+
+### 3. Sweep Away Orphaned Dependencies
+
+Clean up any remaining system libraries pulled in solely by `gnome-shell`:
+
+```bash
+sudo dnf autoremove
 
 ```
 
@@ -401,10 +421,6 @@ Exec=/usr/bin/thunar --sm-client-disable
 4. Refresh application cache:
 ```bash
 update-desktop-database ~/.local/share/applications
-
-```
-
-
 
 ```
 
