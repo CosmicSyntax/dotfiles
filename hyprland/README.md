@@ -1,7 +1,7 @@
 ```markdown
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular**, and browser-to-file-manager bridges.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** and the power-profiles-daemon widget, and browser-to-file-manager bridges.
 
 ---
 
@@ -108,6 +108,13 @@ user = "greetd"
 3. Enable the service:
 ```bash
 sudo systemctl enable greetd
+
+```
+
+
+4. Ensure the power profiles service daemon is active:
+```bash
+sudo systemctl enable --now power-profiles-daemon
 
 ```
 
@@ -376,6 +383,7 @@ input-field {
         "hyprland/window"
     ],
     "modules-right": [
+        "power-profiles-daemon",
         "pulseaudio",
         "network",
         "backlight",
@@ -457,6 +465,18 @@ input-field {
         "format": "⏻",
         "on-click": "~/.config/waybar/scripts/power-menu.sh",
         "tooltip": false
+    },
+
+    "power-profiles-daemon": {
+        "format": "{icon}",
+        "tooltip-format": "Profile: {profile}\nDriver: {driver}",
+        "tooltip": true,
+        "format-icons": {
+            "default": "",
+            "performance": "",
+            "balanced": "",
+            "power-saver": ""
+        }
     }
 }
 
@@ -467,8 +487,7 @@ input-field {
 ```css
 * {
     font-family: "GoogleSansMNerdFont-Regular", sans-serif;
-    font-size: 13px;
-    font-weight: bold;
+    font-size: 15px;
     min-height: 0;
 }
 
@@ -496,6 +515,7 @@ window#waybar {
     color: #2e3440;
 }
 
+#power-profiles-daemon,
 #clock,
 #battery,
 #backlight,
@@ -508,6 +528,30 @@ window#waybar {
     margin: 4px 3px;
     border-radius: 6px;
     color: #eceff4;
+}
+
+#battery.charging {
+    color: #a3be8c;
+}
+
+#battery.warning:not(.charging) {
+    color: #ebcb8b;
+}
+
+#battery.critical:not(.charging) {
+    color: #bf616a;
+    animation-name: blink;
+    animation-duration: 0.5s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+@keyframes blink {
+    to {
+        background-color: #bf616a;
+        color: #2e3440;
+    }
 }
 
 #custom-power {
