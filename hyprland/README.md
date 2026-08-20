@@ -1,353 +1,103 @@
-# Fedora Hyprland Post-Install & Setup Guide
+```markdown
+# Comprehensive Fedora Hyprland Environment Setup Guide
 
-This guide details all packages, system configurations, and user configuration files needed to reproduce the complete Hyprland desktop setup on Fedora.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes full system package installation, GNOME component removal, `greetd` terminal login configuration, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations, and browser-to-file-manager bridges.
 
 ---
 
-## 1. System Package Installation
+## Phase 1: Removing Conflicting GNOME Components & Display Managers
 
-Run the following commands to install the compositor ecosystem, utilities, audio/brightness controllers, and authentication tooling:
+Before setting up a custom Wayland environment, remove competing graphical managers and background services to ensure a clean boot sequence without screen freezing or portal conflicts.
+
+### 1. Disable and Remove GDM (GNOME Display Manager)
+```bash
+sudo systemctl disable gdm
+sudo dnf remove gdm
+
+```
+
+### 2. Remove Conflicting Portals
+
+Remove GNOME's desktop portal to prevent it from intercepting screen-sharing requests:
 
 ```bash
-sudo dnf update -y
-sudo dnf install -y \
+sudo dnf remove xdg-desktop-portal-gnome
+
+```
+
+---
+
+## Phase 2: System Package Installation
+
+Install the window manager, greeter, applets, audio/network tools, utilities, and screen-sharing portals:
+
+```bash
+sudo dnf install \
     hyprland \
+    greetd \
+    agreety \
+    waybar \
     hyprpaper \
     hypridle \
     hyprlock \
-    waybar \
-    wofi \
     alacritty \
+    wofi \
     thunar \
+    pavucontrol \
+    blueman \
+    NetworkManager-tui \
+    network-manager-applet \
+    dunst \
+    hyprpolkitagent \
     grim \
     slurp \
     wl-clipboard \
-    wf-recorder \
-    jq \
-    brightnessctl \
-    playerctl \
+    pipewire \
     wireplumber \
-    polkit-gnome \
-    gnome-keyring \
-    gnome-keyring-pam \
-    seahorse
+    xdg-desktop-portal \
+    xdg-desktop-portal-hyprland \
+    xdg-desktop-portal-gtk
 
 ```
 
 ---
 
-## 2. Display Manager & Power Management
+## Phase 3: Greetd Configuration (Terminal Login)
 
-### SDDM Automatic Keyring Unlock
+Configure `greetd` with `agreety` to provide a clean text login prompt on Virtual Terminal 1 (`vt = 1`).
 
-Ensure `/etc/pam.d/sddm` includes the GNOME Keyring PAM module so logging in automatically unlocks stored credentials:
-
+1. Open the configuration file:
 ```bash
-sudo vi /etc/pam.d/sddm
+sudo nvim /etc/greetd/config.toml
 
 ```
 
-Verify these two lines exist in their respective sections:
 
-```plaintext
-# Under auth
--auth        optional      pam_gnome_keyring.so
+2. Add the following configuration:
+```toml
+[terminal]
+vt = 1
 
-# Under session
--session     optional      pam_gnome_keyring.so auto_start
+[default_session]
+command = "agreety --cmd start-hyprland"
+user = "greetd"
 
 ```
 
-> **Note:** Use `seahorse` to create a default keyring named **Login** and ensure its password matches your Linux user account password.
 
-### Laptop Lid Sleep Configuration
-
-Configure `systemd-logind` so closing the laptop lid or pressing the power button suspends the machine:
-
+3. Enable the service:
 ```bash
-sudo vi /etc/systemd/logind.conf
+sudo systemctl enable greetd
 
 ```
 
-Set the following parameters:
 
-```ini
-[Login]
-HandleLidSwitch=suspend
-HandleLidSwitchExternalPower=suspend
-HandleLidSwitchDocked=ignore
-HandlePowerKey=suspend
-
-```
-
-Apply immediately:
-
-```bash
-sudo systemctl restart systemd-logind
-
-```
 
 ---
 
-## 3. Configuration Files
+## Phase 4: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
-### `~/.config/hypr/hyprpaper.conf`
-
-```ini
-splash = false
-
-wallpaper {
-    monitor = 
-    path = ~/Pictures/wallpaper.png
-    fit_mode = cover
-}
-
-ipc = on
-
-```
-
-### `~/.config/hypr/hypridle.conf`
-
-```ini
-general {
-    lock_cmd = pidof hyprlock || hyprlock
-    before_sleep_cmd = loginctl lock-session
-    after_sleep_cmd = hyprctl dispatch dpms on
-}
-
-listener {
-    timeout = 300
-    on-timeout = hyprlock
-}
-
-listener {
-    timeout = 600
-    on-timeout = systemctl suspend
-}
-
-```
-
-### `~/.config/waybar/config.jsonc`
-
-```jsonc
-{
-    "layer": "top",
-    "position": "top",
-    "height": 34,
-    "margin-top": 6,
-    "margin-left": 10,
-    "margin-right": 10,
-    "spacing": 6,
-    "modules-left": [
-        "hyprland/workspaces",
-        "hyprland/window"
-    ],
-    "modules-center": [
-        "clock"
-    ],
-    "modules-right": [
-        "power-profiles-daemon",
-        "wireplumber",
-        "backlight",
-        "battery",
-        "network",
-        "tray"
-    ],
-    "hyprland/workspaces": {
-        "disable-scroll": true,
-        "all-outputs": true,
-        "format": "{name}",
-        "on-click": "activate"
-    },
-    "hyprland/window": {
-        "format": "{}",
-        "max-length": 40,
-        "separate-outputs": true
-    },
-    "tray": {
-        "icon-size": 16,
-        "spacing": 8
-    },
-    "clock": {
-        "format": "   {:%I:%M %p     %a, %b %d}",
-        "tooltip-format": "<tt><small>{calendar}</small></tt>",
-        "calendar": {
-            "mode": "year",
-            "mode-mon-col": 3,
-            "weeks-pos": "right"
-        }
-    },
-    "power-profiles-daemon": {
-        "format": "{icon}",
-        "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
-        "tooltip": true,
-        "format-icons": {
-            "default": "",
-            "performance": "",
-            "balanced": "",
-            "power-saver": ""
-        }
-    },
-    "wireplumber": {
-        "format": "{icon}  {volume}%",
-        "format-muted": "   Muted",
-        "format-icons": ["", "", ""],
-        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
-        "scroll-step": 5
-    },
-    "backlight": {
-        "format": "{icon}  {percent}%",
-        "format-icons": ["", "", "", "", "", "", "", ""],
-        "scroll-step": 5
-    },
-    "battery": {
-        "states": {
-            "good": 95,
-            "warning": 30,
-            "critical": 15
-        },
-        "format": "{icon}  {capacity}%",
-        "format-charging": "   {capacity}%",
-        "format-plugged": "   {capacity}%",
-        "format-icons": ["", "", "", "", ""]
-    },
-    "network": {
-        "format-wifi": "   {essid}",
-        "format-ethernet": "󰈀   {ipaddr}",
-        "format-linked": "󰈀   {ifname} (No IP)",
-        "format-disconnected": "󰤭  Disconnected",
-        "tooltip-format": "{ifname} via {gwaddr}"
-    }
-}
-
-```
-
-### `~/.config/waybar/style.css`
-
-```css
-* {
-    border: none;
-    border-radius: 0;
-    font-family: "GoogleSansMNerdFont-Regular", monospace;
-    font-weight: 600;
-    font-size: 13px;
-    min-height: 0;
-}
-
-window#waybar {
-    background-color: rgba(46, 52, 64, 0.85); /* nord0 translucent */
-    border: 2px solid #3B4252;               /* nord1 */
-    border-radius: 8px;
-    color: #D8DEE9;                          /* nord4 */
-}
-
-/* Individual Module Pills */
-#workspaces,
-#window,
-#clock,
-#power-profiles-daemon,
-#wireplumber,
-#backlight,
-#battery,
-#network,
-#tray {
-    background-color: #3B4252; /* nord1 */
-    padding: 2px 12px;
-    margin: 4px 2px;
-    border-radius: 6px;
-    color: #ECEFF4;            /* nord6 */
-}
-
-/* Workspaces */
-#workspaces {
-    background-color: transparent;
-    padding: 0;
-}
-
-#workspaces button {
-    padding: 2px 8px;
-    margin: 4px 2px;
-    background-color: #3B4252; /* nord1 */
-    color: #D8DEE9;            /* nord4 */
-    border-radius: 6px;
-    transition: all 0.2s ease-in-out;
-}
-
-#workspaces button.active {
-    background-color: #88C0D0; /* nord8 Frost */
-    color: #2E3440;            /* nord0 */
-}
-
-#workspaces button:hover {
-    background-color: #4C566A; /* nord3 */
-    color: #ECEFF4;
-}
-
-#workspaces button.urgent {
-    background-color: #BF616A; /* nord11 Red */
-    color: #ECEFF4;
-}
-
-/* Window Title */
-#window {
-    background-color: transparent;
-    color: #81A1C1;            /* nord9 */
-}
-
-/* Center Clock */
-#clock {
-    background-color: #434C5E; /* nord2 */
-    color: #88C0D0;            /* nord8 */
-}
-
-/* Right Status Modules Accent Colors */
-#power-profiles-daemon {
-    color: #EBCB8B;            /* nord13 Yellow */
-}
-
-#wireplumber {
-    color: #88C0D0;            /* nord8 Frost */
-}
-
-#wireplumber.muted {
-    background-color: #BF616A;
-    color: #2E3440;
-}
-
-#backlight {
-    color: #EBCB8B;            /* nord13 Yellow */
-}
-
-#battery {
-    color: #A3BE8C;            /* nord14 Green */
-}
-
-#battery.charging {
-    color: #8FBCBB;            /* nord7 */
-}
-
-#battery.warning:not(.charging) {
-    background-color: #D08770; /* nord12 Orange */
-    color: #2E3440;
-}
-
-#battery.critical:not(.charging) {
-    background-color: #BF616A; /* nord11 Red */
-    color: #ECEFF4;
-}
-
-#network {
-    color: #B48EAD;            /* nord15 Purple */
-}
-
-#network.disconnected {
-    background-color: #BF616A;
-    color: #ECEFF4;
-}
-
-```
-
-### `~/.config/hypr/hyprland.lua`
+This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules.
 
 ```lua
 --------------------------------------------------------------------------------
@@ -366,28 +116,34 @@ hl.monitor({
 local terminal    = "alacritty"
 local menu        = "wofi --show drun"
 local fileManager = "env GTK_THEME=Adwaita:dark thunar"
-local browser     = "zen-browser"
+local browser     = "flatpak run one.ablaze.floorp"
 local mainMod     = "SUPER"
 
--- Autostart
-hl.on("hyprland.start", function()
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland")
-    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
-    hl.exec_cmd("/usr/libexec/polkit-gnome-authentication-agent-1")
-    hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
-    hl.exec_cmd("waybar")
-    hl.exec_cmd("hyprpaper")
-    hl.exec_cmd("hypridle")
-end)
-
--- Environment Variables (Theming & Cursors)
+-- Environment Variables (Critical for Portals & Theming)
+hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("GTK_THEME", "Adwaita:dark")
 hl.env("QT_QPA_PLATFORM", "wayland")
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+
+-- Autostart Daemons & Services
+hl.on("hyprland.start", function()
+    hl.exec_cmd("waybar")
+    hl.exec_cmd("hyprpaper")
+    hl.exec_cmd("hypridle")
+    hl.exec_cmd("nm-applet --indicator")
+    hl.exec_cmd("blueman-applet")
+    hl.exec_cmd("dunst")
+    hl.exec_cmd("systemctl --user start hyprpolkitagent")
+    
+    -- Background Keyring Daemon
+    hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
+
+    -- Set GTK Theme Properties via GSettings
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
+end)
 
 -- Core System & Appearance Settings
 hl.config({
@@ -401,9 +157,7 @@ hl.config({
         gaps_out         = 10,
         border_size      = 2,
         col              = {
-            -- Nord Muted Theme: Soft Snow Storm / Nord Frost gradient
             active_border   = { colors = { "#81a1c1", "#2e3440" }, angle = 45 },
-            -- Inactive: Polar Night Slate
             inactive_border = "#2e3440",
         },
         layout           = "dwindle",
@@ -436,9 +190,8 @@ hl.config({
     },
 
     misc = {
-        force_default_wallpaper  = 0,
-        disable_hyprland_logo    = true,
-        -- disable_splash_rendering = true,
+        force_default_wallpaper = 0,
+        disable_hyprland_logo   = true,
     },
 
     input = {
@@ -455,44 +208,23 @@ hl.config({
 -- KEYBINDINGS
 --------------------------------------------------------------------------------
 
--- Application Launchers & Window Actions
 local app_binds = {
     { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
     { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
     { mainMod .. " + E",         hl.dsp.exec_cmd(fileManager) },
     { mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
     { mainMod .. " + Q",         hl.dsp.window.close() },
-    -- { mainMod .. " + T",      hl.dsp.window.float({ action = "toggle" }) },
     { mainMod .. " + P",         hl.dsp.window.pseudo() },
     { mainMod .. " + J",         hl.dsp.layout("togglesplit") },
     { mainMod .. " + M",         hl.dsp.exit() },
     { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
+    { mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock") },
 }
 
 for _, b in ipairs(app_binds) do
     hl.bind(b[1], b[2])
 end
-
--- Screenshots & Screen Recording
-local screenshot_dir = "~/Pictures/Screenshots"
-local screenshot_area = string.format(
-    "grim -g \"$(slurp)\" - | tee %s/$(date +%%Y-%%m-%%d_%%H-%%M-%%S).png | wl-copy && notify-send 'Screenshot' 'Area copied to clipboard and saved'",
-    screenshot_dir)
-local screenshot_full = string.format(
-    "grim - | tee %s/$(date +%%Y-%%m-%%d_%%H-%%M-%%S).png | wl-copy && notify-send 'Screenshot' 'Full screen captured'",
-    screenshot_dir)
-local screenshot_window = string.format(
-    "grim -g \"$(hyprctl -j activewindow | jq -r '\"\\(.at[0]),\\(.at[1]) \\(.size[0])x\\(.size[1])\"')\" - | tee %s/$(date +%%Y-%%m-%%d_%%H-%%M-%%S).png | wl-copy && notify-send 'Screenshot' 'Window captured'",
-    screenshot_dir)
-
-hl.bind("PRINT", hl.dsp.exec_cmd(screenshot_area))
-hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd(screenshot_area))
-hl.bind(mainMod .. " + PRINT", hl.dsp.exec_cmd(screenshot_full))
-hl.bind("ALT + PRINT", hl.dsp.exec_cmd(screenshot_window))
-hl.bind(mainMod .. " + SHIFT + R",
-    hl.dsp.exec_cmd(
-        "killall -s SIGINT wf-recorder || wf-recorder -g \"$(slurp)\" -f ~/Videos/recording_$(date +%Y-%m-%d_%H-%M-%S).mp4 && notify-send 'Screen Recorder' 'Recording toggled'"))
 
 -- Focus Navigation (SUPER + Arrow Keys)
 local focus_binds = {
@@ -521,9 +253,7 @@ end
 -- Workspaces 1-10 Navigation & Window Relocation
 for i = 1, 10 do
     local key = i % 10
-    -- SUPER + [0-9]: Switch to workspace
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
-    -- SUPER + SHIFT + [0-9]: Move active window to workspace
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
 
@@ -531,24 +261,18 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Mouse Interactions (Drag, Resize, Workspace Scroll)
-hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
-hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
-hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
-hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
-
 -- Media, Audio & Hardware Brightness Keys
 local media_keys = {
-    { "XF86AudioRaiseVolume",  "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
-    { "XF86AudioLowerVolume",  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
-    { "XF86AudioMute",          "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
-    { "XF86AudioMicMute",      "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
-    { "XF86MonBrightnessUp",   "brightnessctl set 5%+" },
-    { "XF86MonBrightnessDown", "brightnessctl set 5%-" },
-    { "XF86AudioNext",         "playerctl next" },
-    { "XF86AudioPrev",         "playerctl previous" },
-    { "XF86AudioPlay",         "playerctl play-pause" },
-    { "XF86AudioPause",        "playerctl play-pause" },
+    { "XF86AudioRaiseVolume",    "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
+    { "XF86AudioLowerVolume",    "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
+    { "XF86AudioMute",           "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
+    { "XF86AudioMicMute",        "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
+    { "XF86MonBrightnessUp",     "brightnessctl set 5%+" },
+    { "XF86MonBrightnessDown",   "brightnessctl set 5%-" },
+    { "XF86AudioNext",           "playerctl next" },
+    { "XF86AudioPrev",           "playerctl previous" },
+    { "XF86AudioPlay",           "playerctl play-pause" },
+    { "XF86AudioPause",          "playerctl play-pause" },
 }
 
 for _, k in ipairs(media_keys) do
@@ -560,14 +284,14 @@ end
 --------------------------------------------------------------------------------
 
 hl.window_rule({
-    name           = "suppress-maximize-events",
-    match          = { class = ".*" },
+    name             = "suppress-maximize-events",
+    match            = { class = ".*" },
     suppress_event = "maximize",
 })
 
 hl.window_rule({
-    name     = "fix-xwayland-drags",
-    match    = { class = "^$", title = "^$", xwayland = true, float = true },
+    name       = "fix-xwayland-drags",
+    match      = { class = "^$", title = "^$", xwayland = true, float = true },
     no_focus = true,
 })
 
@@ -577,62 +301,111 @@ hl.window_rule({
     border_size = 0,
 })
 
+hl.window_rule({
+    name   = "float-utilities",
+    match  = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" },
+    float  = true,
+    center = true,
+})
+
 ```
 
 ---
 
-## 4. Key Reference Cheat Sheet
+## Phase 5: Hyprlock Configuration (`~/.config/hypr/hyprlock.conf`)
 
-| Keybinding | Action |
-| --- | --- |
-| `SUPER + T` | Open Terminal (`alacritty`)
+Set up a clean screen locker that can be triggered manually via `SUPER + L` or via `hypridle`.
 
- |
-| `SUPER + R` | Application Launcher (`wofi`)
+Create or update `~/.config/hypr/hyprlock.conf`:
 
- |
-| `SUPER + E` | File Manager (`thunar`)
+```ini
+background {
+    monitor =
+    path = screenshot
+    blur_passes = 3
+    blur_size = 7
+}
 
- |
-| `SUPER + B` | Browser (`zen-browser`)
+input-field {
+    monitor =
+    size = 250, 50
+    outline_thickness = 3
+    dots_size = 0.33
+    dots_spacing = 0.15
+    fade_on_empty = false
+    placeholder_text = <span foreground="#cad3f5">Input Password...</span>
+}
 
- |
-| `SUPER + Q` | Close Active Window
+```
 
- |
-| `SUPER + F` | Maximize Active Tile (Monocle)
+---
 
- |
-| `SUPER + SHIFT + F` | True Fullscreen
+## Phase 6: Waybar Setup & Logout Integration
 
- |
-| `SUPER + P` | Pseudo Tile Mode
+### 1. Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
 
- |
-| `SUPER + J` | Toggle Split Orientation
+Ensure your Waybar power menu script properly tears down the `greetd` session when logging out:
 
- |
-| `SUPER + M` | Exit Hyprland
+```bash
+#!/usr/bin/env bash
 
- |
-| `SUPER + Arrow Keys` | Focus Window
+CHOICE=$(printf "Lock\nLogout\nReboot\nShutdown" | wofi --dmenu -p "Power Menu")
 
- |
-| `SUPER + SHIFT + Arrow Keys` | Move Tiled Window
+case "$CHOICE" in
+    *"Lock")
+        hyprlock
+        ;;
+    *"Logout")
+        loginctl terminate-session $XDG_SESSION_ID
+        ;;
+    *"Reboot")
+        systemctl reboot
+        ;;
+    *"Shutdown")
+        systemctl poweroff
+        ;;
+esac
 
- |
-| `SUPER + 1..0` | Switch Workspace
+```
 
- |
-| `SUPER + SHIFT + 1..0` | Move Window to Workspace
+---
 
- |
-| `SUPER + S` | Toggle Magic Scratchpad
+## Phase 7: Browser File Manager Bridge (Thunar)
 
- |
-| `SUPER + SHIFT + S` | Move Window to Scratchpad
+To link browser download folder buttons directly to Thunar:
 
- |
-| `PRINT` / `SUPER + SHIFT + S` | Screenshot Selected Area to Clipboard & File
+1. Set the default directory handler:
+```bash
+xdg-mime default thunar.desktop inode/directory
 
- |
+```
+
+
+2. Create the D-Bus file manager bridge service:
+```bash
+mkdir -p ~/.local/share/dbus-1/services
+nvim ~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service
+
+```
+
+
+3. Paste this service definition:
+```ini
+[D-BUS Service]
+Name=org.freedesktop.FileManager1
+Exec=/usr/bin/thunar --sm-client-disable
+
+```
+
+
+4. Refresh application cache:
+```bash
+update-desktop-database ~/.local/share/applications
+
+```
+
+
+
+```
+
+```
