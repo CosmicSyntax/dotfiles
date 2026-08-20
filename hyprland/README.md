@@ -1,4 +1,3 @@
-```markdown
 # Fedora Hyprland Post-Install & Setup Guide
 
 This guide details all packages, system configurations, and user configuration files needed to reproduce the complete Hyprland desktop setup on Fedora.
@@ -128,6 +127,226 @@ listener {
 
 ```
 
+### `~/.config/waybar/config.jsonc`
+
+```jsonc
+{
+    "layer": "top",
+    "position": "top",
+    "height": 34,
+    "margin-top": 6,
+    "margin-left": 10,
+    "margin-right": 10,
+    "spacing": 6,
+    "modules-left": [
+        "hyprland/workspaces",
+        "hyprland/window"
+    ],
+    "modules-center": [
+        "clock"
+    ],
+    "modules-right": [
+        "power-profiles-daemon",
+        "wireplumber",
+        "backlight",
+        "battery",
+        "network",
+        "tray"
+    ],
+    "hyprland/workspaces": {
+        "disable-scroll": true,
+        "all-outputs": true,
+        "format": "{name}",
+        "on-click": "activate"
+    },
+    "hyprland/window": {
+        "format": "{}",
+        "max-length": 40,
+        "separate-outputs": true
+    },
+    "tray": {
+        "icon-size": 16,
+        "spacing": 8
+    },
+    "clock": {
+        "format": "   {:%I:%M %p     %a, %b %d}",
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "year",
+            "mode-mon-col": 3,
+            "weeks-pos": "right"
+        }
+    },
+    "power-profiles-daemon": {
+        "format": "{icon}",
+        "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
+        "tooltip": true,
+        "format-icons": {
+            "default": "",
+            "performance": "",
+            "balanced": "",
+            "power-saver": ""
+        }
+    },
+    "wireplumber": {
+        "format": "{icon}  {volume}%",
+        "format-muted": "   Muted",
+        "format-icons": ["", "", ""],
+        "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "scroll-step": 5
+    },
+    "backlight": {
+        "format": "{icon}  {percent}%",
+        "format-icons": ["", "", "", "", "", "", "", ""],
+        "scroll-step": 5
+    },
+    "battery": {
+        "states": {
+            "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon}  {capacity}%",
+        "format-charging": "   {capacity}%",
+        "format-plugged": "   {capacity}%",
+        "format-icons": ["", "", "", "", ""]
+    },
+    "network": {
+        "format-wifi": "   {essid}",
+        "format-ethernet": "󰈀   {ipaddr}",
+        "format-linked": "󰈀   {ifname} (No IP)",
+        "format-disconnected": "󰤭  Disconnected",
+        "tooltip-format": "{ifname} via {gwaddr}"
+    }
+}
+
+```
+
+### `~/.config/waybar/style.css`
+
+```css
+* {
+    border: none;
+    border-radius: 0;
+    font-family: "GoogleSansMNerdFont-Regular", monospace;
+    font-weight: 600;
+    font-size: 13px;
+    min-height: 0;
+}
+
+window#waybar {
+    background-color: rgba(46, 52, 64, 0.85); /* nord0 translucent */
+    border: 2px solid #3B4252;               /* nord1 */
+    border-radius: 8px;
+    color: #D8DEE9;                          /* nord4 */
+}
+
+/* Individual Module Pills */
+#workspaces,
+#window,
+#clock,
+#power-profiles-daemon,
+#wireplumber,
+#backlight,
+#battery,
+#network,
+#tray {
+    background-color: #3B4252; /* nord1 */
+    padding: 2px 12px;
+    margin: 4px 2px;
+    border-radius: 6px;
+    color: #ECEFF4;            /* nord6 */
+}
+
+/* Workspaces */
+#workspaces {
+    background-color: transparent;
+    padding: 0;
+}
+
+#workspaces button {
+    padding: 2px 8px;
+    margin: 4px 2px;
+    background-color: #3B4252; /* nord1 */
+    color: #D8DEE9;            /* nord4 */
+    border-radius: 6px;
+    transition: all 0.2s ease-in-out;
+}
+
+#workspaces button.active {
+    background-color: #88C0D0; /* nord8 Frost */
+    color: #2E3440;            /* nord0 */
+}
+
+#workspaces button:hover {
+    background-color: #4C566A; /* nord3 */
+    color: #ECEFF4;
+}
+
+#workspaces button.urgent {
+    background-color: #BF616A; /* nord11 Red */
+    color: #ECEFF4;
+}
+
+/* Window Title */
+#window {
+    background-color: transparent;
+    color: #81A1C1;            /* nord9 */
+}
+
+/* Center Clock */
+#clock {
+    background-color: #434C5E; /* nord2 */
+    color: #88C0D0;            /* nord8 */
+}
+
+/* Right Status Modules Accent Colors */
+#power-profiles-daemon {
+    color: #EBCB8B;            /* nord13 Yellow */
+}
+
+#wireplumber {
+    color: #88C0D0;            /* nord8 Frost */
+}
+
+#wireplumber.muted {
+    background-color: #BF616A;
+    color: #2E3440;
+}
+
+#backlight {
+    color: #EBCB8B;            /* nord13 Yellow */
+}
+
+#battery {
+    color: #A3BE8C;            /* nord14 Green */
+}
+
+#battery.charging {
+    color: #8FBCBB;            /* nord7 */
+}
+
+#battery.warning:not(.charging) {
+    background-color: #D08770; /* nord12 Orange */
+    color: #2E3440;
+}
+
+#battery.critical:not(.charging) {
+    background-color: #BF616A; /* nord11 Red */
+    color: #ECEFF4;
+}
+
+#network {
+    color: #B48EAD;            /* nord15 Purple */
+}
+
+#network.disconnected {
+    background-color: #BF616A;
+    color: #ECEFF4;
+}
+
+```
+
 ### `~/.config/hypr/hyprland.lua`
 
 ```lua
@@ -152,8 +371,8 @@ local mainMod     = "SUPER"
 
 -- Autostart
 hl.on("hyprland.start", function()
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland SSH_AUTH_SOCK")
-    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=Hyprland")
+    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
     hl.exec_cmd("/usr/libexec/polkit-gnome-authentication-agent-1")
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
@@ -182,7 +401,9 @@ hl.config({
         gaps_out         = 10,
         border_size      = 2,
         col              = {
+            -- Nord Muted Theme: Soft Snow Storm / Nord Frost gradient
             active_border   = { colors = { "#81a1c1", "#2e3440" }, angle = 45 },
+            -- Inactive: Polar Night Slate
             inactive_border = "#2e3440",
         },
         layout           = "dwindle",
@@ -217,7 +438,7 @@ hl.config({
     misc = {
         force_default_wallpaper  = 0,
         disable_hyprland_logo    = true,
-        disable_splash_rendering = true,
+        -- disable_splash_rendering = true,
     },
 
     input = {
@@ -241,11 +462,11 @@ local app_binds = {
     { mainMod .. " + E",         hl.dsp.exec_cmd(fileManager) },
     { mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
     { mainMod .. " + Q",         hl.dsp.window.close() },
-    { mainMod .. " + F",         hl.dsp.window.float({ action = "toggle" }) },
+    -- { mainMod .. " + T",      hl.dsp.window.float({ action = "toggle" }) },
     { mainMod .. " + P",         hl.dsp.window.pseudo() },
     { mainMod .. " + J",         hl.dsp.layout("togglesplit") },
     { mainMod .. " + M",         hl.dsp.exit() },
-    { mainMod .. " + W",         hl.dsp.window.fullscreen({ mode = 1 }) },
+    { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
 }
 
@@ -256,7 +477,7 @@ end
 -- Screenshots & Screen Recording
 local screenshot_dir = "~/Pictures/Screenshots"
 local screenshot_area = string.format(
-    "grim -g \"$(slurp)\" - \vert{} tee \%s/$(date +%%Y-%%m-%%d_%%H-%%M-%%S).png | wl-copy && notify-send 'Screenshot' 'Area copied to clipboard and saved'",
+    "grim -g \"$(slurp)\" - | tee %s/$(date +%%Y-%%m-%%d_%%H-%%M-%%S).png | wl-copy && notify-send 'Screenshot' 'Area copied to clipboard and saved'",
     screenshot_dir)
 local screenshot_full = string.format(
     "grim - | tee %s/$(date +%%Y-%%m-%%d_%%H-%%M-%%S).png | wl-copy && notify-send 'Screenshot' 'Full screen captured'",
@@ -300,7 +521,9 @@ end
 -- Workspaces 1-10 Navigation & Window Relocation
 for i = 1, 10 do
     local key = i % 10
+    -- SUPER + [0-9]: Switch to workspace
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
+    -- SUPER + SHIFT + [0-9]: Move active window to workspace
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
 
@@ -308,7 +531,7 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Mouse Interactions
+-- Mouse Interactions (Drag, Resize, Workspace Scroll)
 hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
 hl.bind(mainMod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
@@ -362,25 +585,54 @@ hl.window_rule({
 
 | Keybinding | Action |
 | --- | --- |
-| `SUPER + T` | Open Terminal (`alacritty`) |
-| `SUPER + R` | Application Launcher (`wofi`) |
-| `SUPER + E` | File Manager (`thunar`) |
-| `SUPER + B` | Browser (`zen-browser`) |
-| `SUPER + Q` | Close Active Window |
-| `SUPER + F` | Toggle Floating Mode |
-| `SUPER + W` | Maximize Active Tile (Monocle) |
-| `SUPER + SHIFT + F` | True Fullscreen |
-| `SUPER + J` | Toggle Split Orientation |
-| `SUPER + M` | Exit Hyprland |
-| `SUPER + Arrow Keys` | Focus Window |
-| `SUPER + SHIFT + Arrow Keys` | Move Tiled Window |
-| `SUPER + 1..0` | Switch Workspace |
-| `SUPER + SHIFT + 1..0` | Move Window to Workspace |
-| `SUPER + S` | Toggle Magic Scratchpad |
-| `SUPER + SHIFT + S` | Move Window to Scratchpad |
-| `PRINT` / `SUPER + SHIFT + S` | Screenshot Selected Area to Clipboard & File |
+| `SUPER + T` | Open Terminal (`alacritty`)
 
-```
+ |
+| `SUPER + R` | Application Launcher (`wofi`)
 
-```
+ |
+| `SUPER + E` | File Manager (`thunar`)
 
+ |
+| `SUPER + B` | Browser (`zen-browser`)
+
+ |
+| `SUPER + Q` | Close Active Window
+
+ |
+| `SUPER + F` | Maximize Active Tile (Monocle)
+
+ |
+| `SUPER + SHIFT + F` | True Fullscreen
+
+ |
+| `SUPER + P` | Pseudo Tile Mode
+
+ |
+| `SUPER + J` | Toggle Split Orientation
+
+ |
+| `SUPER + M` | Exit Hyprland
+
+ |
+| `SUPER + Arrow Keys` | Focus Window
+
+ |
+| `SUPER + SHIFT + Arrow Keys` | Move Tiled Window
+
+ |
+| `SUPER + 1..0` | Switch Workspace
+
+ |
+| `SUPER + SHIFT + 1..0` | Move Window to Workspace
+
+ |
+| `SUPER + S` | Toggle Magic Scratchpad
+
+ |
+| `SUPER + SHIFT + S` | Move Window to Scratchpad
+
+ |
+| `PRINT` / `SUPER + SHIFT + S` | Screenshot Selected Area to Clipboard & File
+
+ |
