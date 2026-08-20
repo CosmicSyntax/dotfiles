@@ -1,7 +1,8 @@
-```markdown
+---
+
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** and the power-profiles-daemon widget, and browser-to-file-manager bridges.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** and the power-profiles-daemon widget, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
 
 ---
 
@@ -10,7 +11,9 @@ This document provides the complete, end-to-end blueprint for building a fully c
 To completely strip out the core GNOME Desktop Environment (DE) shell and its background session components while leaving standalone user utilities untouched, run the following commands:
 
 ### 1. Remove Core GNOME Shell, Mutter, and GDM
+
 Tear out `gnome-shell`, session targets, Mutter window management infrastructure, GDM, and competing portals:
+
 ```bash
 sudo systemctl disable gdm
 sudo dnf remove \
@@ -49,7 +52,7 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the window manager, greeter, applets, audio/network tools, utilities, and screen-sharing portals:
+Install the window manager, greeter, applets, audio/network tools, utilities, screen-sharing portals, and SwayNC notification center:
 
 ```bash
 sudo dnf install \
@@ -67,7 +70,7 @@ sudo dnf install \
     blueman \
     NetworkManager-tui \
     network-manager-applet \
-    dunst \
+    swaync \
     hyprpolkitagent \
     grim \
     slurp \
@@ -124,7 +127,7 @@ sudo systemctl enable --now power-profiles-daemon
 
 ## Phase 4: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
-This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules.
+This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules. Note that `swaync` replaces `dunst` in your startup block.
 
 ```lua
 --------------------------------------------------------------------------------
@@ -161,7 +164,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("hypridle")
     hl.exec_cmd("nm-applet --indicator")
     hl.exec_cmd("blueman-applet")
-    hl.exec_cmd("dunst")
+    hl.exec_cmd("swaync")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
     
     -- Background Keyring Daemon
@@ -367,6 +370,8 @@ input-field {
 
 ### 1. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
+Includes the notification center bell widget module:
+
 ```jsonc
 {
     "layer": "top",
@@ -389,6 +394,7 @@ input-field {
         "backlight",
         "battery",
         "clock",
+        "custom/notification",
         "custom/power"
     ],
 
@@ -461,6 +467,26 @@ input-field {
         "on-click": "pavucontrol"
     },
 
+    "custom/notification": {
+        "format": "{} {icon}",
+        "format-icons": {
+            "notification": "<span foreground='red'><sup></sup></span>",
+            "none": "",
+            "dnd-notification": "<span foreground='red'><sup></sup></span>",
+            "dnd-none": "",
+            "inhibited-notification": "<span foreground='red'><sup></sup></span>",
+            "inhibited-none": "",
+            "dnd-inhibited-notification": "<span foreground='red'><sup></sup></span>",
+            "dnd-inhibited-none": ""
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+
     "custom/power": {
         "format": "⏻",
         "on-click": "~/.config/waybar/scripts/power-menu.sh",
@@ -521,6 +547,7 @@ window#waybar {
 #backlight,
 #network,
 #pulseaudio,
+#custom-notification,
 #custom-power,
 #window {
     background: #3b4252;
@@ -592,7 +619,194 @@ esac
 
 ---
 
-## Phase 7: Browser File Manager Bridge (Thunar)
+## Phase 7: SwayNC Notification Center Configuration & Styling
+
+### 1. Configuration (`~/.config/swaync/config.json`)
+
+Configured to hide notification icons completely (`"image-visibility": "never"`):
+
+```json
+{
+  "$schema": "/etc/swaync/configSchema.json",
+  "positionX": "right",
+  "positionY": "top",
+  "layer": "overlay",
+  "control-center-width": 400,
+  "control-center-height": 600,
+  "notification-window-width": 400,
+  "keyboard-shortcuts": true,
+  "image-visibility": "never",
+  "transition-time": 200,
+  "hide-on-clear": true,
+  "hide-on-action": true,
+  "script-fail-notify": true,
+  "widgets": [
+    "title",
+    "dnd",
+    "notifications",
+    "mpris"
+  ],
+  "widget-config": {
+    "title": {
+      "text": "Notification Center",
+      "clear-all-button": true,
+      "button-text": "Clear All"
+    },
+    "dnd": {
+      "text": "Do Not Disturb"
+    },
+    "mpris": {
+      "image-size": 96,
+      "blur": 14
+    }
+  }
+}
+
+```
+
+### 2. Nord Stylesheet (`~/.config/swaync/style.css`)
+
+Fully optimized to strip out wrapper gray boxes and list shadows for a seamless text-focused card layout:
+
+```css
+/* --- Nord Theme for SwayNC --- */
+
+* {
+  font-family: "GoogleSansMNerdFont-Regular", sans-serif;
+  font-size: 13px;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Control Center Panel Background */
+.control-center {
+  background: rgba(46, 52, 64, 0.95);
+  border: 2px solid #81a1c1;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  color: #eceff4;
+  padding: 12px;
+}
+
+/* Completely strip out row wrappers and inner background artifacts */
+.control-center-list,
+.notification-row,
+.notification-background {
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  border: none;
+  margin: 4px 0;
+  padding: 0px;
+}
+
+/* The actual notification card (Popups and Control Center) */
+.notification {
+  background: #3b4252;
+  border: 2px solid #81a1c1;
+  border-radius: 10px;
+  padding: 8px;
+  color: #eceff4;
+  box-shadow: none;
+}
+
+.notification-content {
+  background: transparent;
+  color: #eceff4;
+}
+
+/* Hide App Icons Completely */
+.notification-icon {
+  min-width: 0px;
+  min-height: 0px;
+  margin: 0px;
+  display: none;
+}
+
+.summary {
+  font-weight: bold;
+  color: #eceff4;
+  font-size: 14px;
+}
+
+.body {
+  color: #d8dee9;
+  font-size: 12px;
+}
+
+.time {
+  color: #4c566a;
+  font-size: 10px;
+}
+
+/* Close Button */
+.close-button {
+  background: #434c5e;
+  color: #eceff4;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.close-button:hover {
+  background: #bf616a;
+  color: #2e3440;
+}
+
+/* Widget Styles (Title, DND, Clear All) */
+.widget-title {
+  color: #eceff4;
+  margin: 8px;
+  font-size: 16px;
+}
+
+.widget-title>button {
+  background: #3b4252;
+  color: #eceff4;
+  border: 1px solid #434c5e;
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.widget-title>button:hover {
+  background: #81a1c1;
+  color: #2e3440;
+}
+
+.widget-dnd {
+  background: #3b4252;
+  border-radius: 8px;
+  padding: 8px;
+  margin: 8px 0;
+  color: #eceff4;
+}
+
+.widget-dnd switch {
+  background: #434c5e;
+  border-radius: 12px;
+}
+
+.widget-dnd switch:checked {
+  background: #81a1c1;
+}
+
+/* Media Player Widget (MPRIS) */
+.widget-mpris {
+  background: #3b4252;
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 8px;
+  color: #eceff4;
+}
+
+.widget-mpris-player {
+  padding: 8px;
+}
+
+```
+
+---
+
+## Phase 8: Browser File Manager Bridge (Thunar)
 
 1. Set the default directory handler:
 ```bash
