@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** and the power-profiles-daemon widget, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular**, power-profiles-daemon, an empty-state collapsing active window module, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
 
 ---
 
@@ -127,7 +127,7 @@ sudo systemctl enable --now power-profiles-daemon
 
 ## Phase 4: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
-This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules. Note that `swaync` replaces `dunst` in your startup block.
+This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules (`swaync` replaces `dunst` here).
 
 ```lua
 --------------------------------------------------------------------------------
@@ -370,7 +370,7 @@ input-field {
 
 ### 1. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
-Includes the notification center bell widget module:
+Includes the collapse-on-empty window module and notification bell widget module:
 
 ```jsonc
 {
@@ -418,6 +418,7 @@ Includes the notification center bell widget module:
 
     "hyprland/window": {
         "format": "{}",
+        "format-empty": "",
         "max-length": 50,
         "separate-outputs": true
     },
@@ -510,6 +511,8 @@ Includes the notification center bell widget module:
 
 ### 2. Stylesheet (`~/.config/waybar/style.css`)
 
+Includes the empty state CSS selector rule to completely clear out empty window block containers:
+
 ```css
 * {
     font-family: "GoogleSansMNerdFont-Regular", sans-serif;
@@ -521,6 +524,13 @@ window#waybar {
     background: rgba(46, 52, 64, 0.85);
     color: #eceff4;
     border-bottom: 2px solid rgba(129, 161, 193, 0.3);
+}
+
+window#waybar.empty #window {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
 }
 
 #workspaces button {
