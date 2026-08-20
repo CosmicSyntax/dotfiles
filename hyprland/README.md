@@ -1,7 +1,7 @@
 ```markdown
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations, and browser-to-file-manager bridges.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular**, and browser-to-file-manager bridges.
 
 ---
 
@@ -334,10 +334,6 @@ hl.window_rule({
 
 ## Phase 5: Hyprlock Configuration (`~/.config/hypr/hyprlock.conf`)
 
-Set up a clean screen locker that can be triggered manually via `SUPER + L` or via `hypridle`.
-
-Create or update `~/.config/hypr/hyprlock.conf`:
-
 ```ini
 background {
     monitor =
@@ -360,11 +356,173 @@ input-field {
 
 ---
 
-## Phase 6: Waybar Setup & Logout Integration
+## Phase 6: Waybar Setup & Styling
 
-### 1. Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
+### 1. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
-Ensure your Waybar power menu script properly tears down the `greetd` session when logging out:
+```jsonc
+{
+    "layer": "top",
+    "position": "top",
+    "height": 34,
+    "spacing": 4,
+    "exclusive": true,
+    "gtk-layer-shell": true,
+
+    "modules-left": [
+        "hyprland/workspaces"
+    ],
+    "modules-center": [
+        "hyprland/window"
+    ],
+    "modules-right": [
+        "pulseaudio",
+        "network",
+        "backlight",
+        "battery",
+        "clock",
+        "custom/power"
+    ],
+
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "on-click": "activate",
+        "format-icons": {
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "urgent": "",
+            "active": "",
+            "default": ""
+        },
+        "persistent-workspaces": {
+            "*": 5
+        }
+    },
+
+    "hyprland/window": {
+        "format": "{}",
+        "max-length": 50,
+        "separate-outputs": true
+    },
+
+    "clock": {
+        "format": "{:%m/%d %H:%M}",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+    },
+
+    "backlight": {
+        "format": "{icon} {percent}%",
+        "format-icons": ["", "", "", "", "", "", "", "", ""]
+    },
+
+    "battery": {
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": "󰂄 {capacity}%",
+        "format-plugged": "󰚥 {capacity}%",
+        "format-alt": "{time} {icon}",
+        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+    },
+
+    "network": {
+        "format-wifi": "󰖩 {essid}",
+        "format-ethernet": "󰈀 Wired",
+        "format-disconnected": "󰖪 Disconnected",
+        "on-click": "nm-connection-editor"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-bluetooth": "{icon} {volume}% 󰂯",
+        "format-muted": "󰝟",
+        "format-icons": {
+            "headphone": "󰋋",
+            "hands-free": "󰋋",
+            "headset": "󰋋",
+            "phone": "󰏲",
+            "portable": "󰏲",
+            "car": "󰄋",
+            "default": ["󰕿", "󰖀", "󰕾"]
+        },
+        "on-click": "pavucontrol"
+    },
+
+    "custom/power": {
+        "format": "⏻",
+        "on-click": "~/.config/waybar/scripts/power-menu.sh",
+        "tooltip": false
+    }
+}
+
+```
+
+### 2. Stylesheet (`~/.config/waybar/style.css`)
+
+```css
+* {
+    font-family: "GoogleSansMNerdFont-Regular", sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    min-height: 0;
+}
+
+window#waybar {
+    background: rgba(46, 52, 64, 0.85);
+    color: #eceff4;
+    border-bottom: 2px solid rgba(129, 161, 193, 0.3);
+}
+
+#workspaces button {
+    padding: 0 8px;
+    color: #d8dee9;
+    background: transparent;
+    border-radius: 4px;
+    margin: 4px 2px;
+}
+
+#workspaces button:hover {
+    background: rgba(129, 161, 193, 0.2);
+    color: #81a1c1;
+}
+
+#workspaces button.active {
+    background: #81a1c1;
+    color: #2e3440;
+}
+
+#clock,
+#battery,
+#backlight,
+#network,
+#pulseaudio,
+#custom-power,
+#window {
+    background: #3b4252;
+    padding: 2px 10px;
+    margin: 4px 3px;
+    border-radius: 6px;
+    color: #eceff4;
+}
+
+#custom-power {
+    color: #bf616a;
+    margin-right: 6px;
+}
+
+#custom-power:hover {
+    background: #bf616a;
+    color: #2e3440;
+}
+
+```
+
+### 3. Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
 
 ```bash
 #!/usr/bin/env bash
@@ -391,8 +549,6 @@ esac
 ---
 
 ## Phase 7: Browser File Manager Bridge (Thunar)
-
-To link browser download folder buttons directly to Thunar:
 
 1. Set the default directory handler:
 ```bash
@@ -421,7 +577,5 @@ Exec=/usr/bin/thunar --sm-client-disable
 4. Refresh application cache:
 ```bash
 update-desktop-database ~/.local/share/applications
-
-```
 
 ```
