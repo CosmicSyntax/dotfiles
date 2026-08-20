@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular**, power-profiles-daemon, an empty-state collapsing active window module, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular**, power-profiles-daemon, an empty-state collapsing active window module, a Wofi toggle script wrapper, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
 
 ---
 
@@ -125,7 +125,41 @@ sudo systemctl enable --now power-profiles-daemon
 
 ---
 
-## Phase 4: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
+## Phase 4: Wofi Toggle Script Wrapper
+
+To prevent `SUPER + R` from stacking multiple instances of Wofi on top of each other, create a toggle script:
+
+1. Create the script file:
+```bash
+mkdir -p ~/.config/hypr/scripts
+nvim ~/.config/hypr/scripts/wofi-toggle.sh
+
+```
+
+
+2. Add the toggle logic:
+```bash
+#!/usr/bin/env bash
+if pidof wofi > /dev/null; then
+    killall wofi
+else
+    wofi --show drun
+fi
+
+```
+
+
+3. Make it executable:
+```bash
+chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
+
+```
+
+
+
+---
+
+## Phase 5: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
 This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules (`swaync` replaces `dunst` here).
 
@@ -144,7 +178,7 @@ hl.monitor({
 
 -- Default Applications & Variables
 local terminal    = "alacritty"
-local menu        = "wofi --show drun"
+local menu        = "~/.config/hypr/scripts/wofi-toggle.sh"
 local fileManager = "env GTK_THEME=Adwaita:dark thunar"
 local browser     = "flatpak run one.ablaze.floorp"
 local mainMod     = "SUPER"
@@ -342,7 +376,7 @@ hl.window_rule({
 
 ---
 
-## Phase 5: Hyprlock Configuration (`~/.config/hypr/hyprlock.conf`)
+## Phase 6: Hyprlock Configuration (`~/.config/hypr/hyprlock.conf`)
 
 ```ini
 background {
@@ -366,7 +400,7 @@ input-field {
 
 ---
 
-## Phase 6: Waybar Setup & Styling
+## Phase 7: Waybar Setup & Styling
 
 ### 1. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
@@ -629,7 +663,7 @@ esac
 
 ---
 
-## Phase 7: SwayNC Notification Center Configuration & Styling
+## Phase 8: SwayNC Notification Center Configuration & Styling
 
 ### 1. Configuration (`~/.config/swaync/config.json`)
 
@@ -816,7 +850,7 @@ Fully optimized to strip out wrapper gray boxes and list shadows for a seamless 
 
 ---
 
-## Phase 8: Browser File Manager Bridge (Thunar)
+## Phase 9: Browser File Manager Bridge (Thunar)
 
 1. Set the default directory handler:
 ```bash
