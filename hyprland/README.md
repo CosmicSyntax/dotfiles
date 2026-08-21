@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Native HDR support, Zen Browser integration, Vim-style window navigation, and a customized Nord-themed interface.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Native HDR support, Zen Browser integration, a kernel-aware True Clamshell Mode, and a customized Nord-themed interface with globally applied Papirus icons.
 
 ---
 
@@ -46,7 +46,7 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the compositor, session manager (`uwsm`), utilities, portals, and dynamic night light daemon.
+Install the compositor, session manager (`uwsm`), utilities, portals, dynamic night light daemon, and icon themes.
 
 ```bash
 sudo dnf install \
@@ -75,7 +75,8 @@ sudo dnf install \
     xdg-desktop-portal \
     xdg-desktop-portal-hyprland \
     xdg-desktop-portal-gtk \
-    wlsunset
+    wlsunset \
+    papirus-icon-theme
 
 ```
 
@@ -162,31 +163,55 @@ chmod +x ~/.config/hypr/scripts/dynamic-nightlight.sh
 
 ## Phase 5: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
 
-This Lua configuration features Native HDR, 2560x1600 rendering, Zen Browser, dynamic night light, and leverages `uwsm app --` to launch processes natively inside systemd.
+This Lua configuration features dynamic kernel-aware Clamshell Mode, Native HDR, 2560x1600 rendering, Zen Browser, dynamic night light, Papirus icon theming, and leverages `uwsm app --` to launch processes natively inside systemd.
 
 ```lua
 --------------------------------------------------------------------------------
 -- HYPRLAND CONFIGURATION (LUA)
 --------------------------------------------------------------------------------
 
--- Monitors (HiDPI laptop panel with Native HDR enabled)
+-- Monitors (HiDPI laptop panel)
+local handle = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
+local lid_state = handle:read("*a")
+handle:close()
+
+-- 2. Dynamically configure eDP-1 based on the physical switch
+if string.find(string.lower(lid_state), "closed") then
+    -- Lid is shut: keep the screen dead during config reloads
+    hl.monitor({
+        output   = "eDP-1",
+        disabled = true,
+    })
+else
+    -- Lid is open: initialize the panel normally
+    hl.monitor({
+        output   = "eDP-1",
+        mode     = "2560x1600@60",
+        position = "0x1440",
+        scale    = "1.0",
+        bitdepth = 10,
+        cm       = "auto",
+    })
+end
+
+-- External Samsung OLED (Always On)
 hl.monitor({
-    output   = "eDP-1",
-    mode     = "2560x1600@60",
+    output   = "DP-1",
+    mode     = "highres@highrr",
     position = "0x0",
     scale    = "1.0",
     bitdepth = 10,
     cm       = "hdr",
 })
 
--- Default Applications & Variables (Wrapped in UWSM)
-local terminal    = "uwsm app -- alacritty"
-local menu        = "uwsm app -- ~/.config/hypr/scripts/wofi-toggle.sh"
-local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
-local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
+-- Default Applications & Variables
+local terminal    = "alacritty"
+local menu        = "~/.config/hypr/scripts/wofi-toggle.sh"
+local fileManager = "env GTK_THEME=Adwaita:dark thunar"
+local browser     = "flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
--- Environment Variables
+-- Environment Variables (Critical for Portals & Theming)
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
@@ -196,7 +221,7 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Autostart Daemons & Services
 hl.on("hyprland.start", function()
-    -- 1. Start core daemons using native systemd services
+    -- 1. Start core daemons using their native systemd services
     hl.exec_cmd("systemctl --user start swaync.service")
     hl.exec_cmd("systemctl --user start waybar.service")
     hl.exec_cmd("systemctl --user start hypridle.service")
@@ -207,11 +232,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("uwsm app -- nm-applet --indicator")
     hl.exec_cmd("uwsm app -- blueman-applet")
     hl.exec_cmd("uwsm app -- gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
-    
     -- Dynamic Night Light via IP geolocation
-    hl.exec_cmd("uwsm app -- ~/.config/hypr/scripts/dynamic-nightlight.sh")
+    hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
 
-    -- 3. Set GTK Theme Properties
+    -- 3. Set GTK Theme Properties via GSettings
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
@@ -226,20 +250,20 @@ hl.config({
     general = {
         gaps_in          = 4,
         gaps_out         = 10,
-        border_size      = 2,
-        col              = {
-            active_border   = { colors = { "#81a1c1", "#2e3440" }, angle = 45 },
-            inactive_border = "#2e3440",
-        },
+        border_size      = 0,
+        -- col              = {
+        --      active_border   = { colors = { "#81a1c1", "#2e3440" }, angle = 45 },
+        --      inactive_border = "#2e3440",
+        -- },
         layout           = "dwindle",
-        resize_on_border = true,
+        resize_on_border = true, -- Enables mouse-dragging on inner split borders
         allow_tearing    = false,
     },
 
     decoration = {
-        rounding         = 8,
+        rounding         = 5,
         active_opacity   = 1.0,
-        inactive_opacity = 0.95,
+        inactive_opacity = 0.85,
         shadow           = {
             enabled      = true,
             range        = 12,
@@ -255,7 +279,10 @@ hl.config({
     },
 
     animations = { enabled = true },
-    dwindle = { preserve_split = true },
+
+    dwindle = {
+        preserve_split = true,
+    },
 
     misc = {
         force_default_wallpaper = 0,
@@ -266,7 +293,9 @@ hl.config({
         kb_layout    = "us",
         follow_mouse = 1,
         sensitivity  = 0,
-        touchpad     = { natural_scroll = true },
+        touchpad     = {
+            natural_scroll = true,
+        },
     },
 })
 
@@ -285,10 +314,10 @@ local app_binds = {
     { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
     { mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
-    
-    -- Toggle Night Light (Restarts dynamic script)
+    -- Toggle Night Light (Kills wlsunset if running, restarts dynamic script if not)
     { mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("pkill wlsunset || uwsm app -- ~/.config/hypr/scripts/dynamic-nightlight.sh") },
-    
+    -- { mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock") },
+
     -- Graceful session termination via UWSM
     { mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
 }
@@ -297,7 +326,7 @@ for _, b in ipairs(app_binds) do
     hl.bind(b[1], b[2])
 end
 
--- Focus Navigation (SUPER + Vim Keys)
+-- Focus Navigation (SUPER + Arrow Keys)
 local focus_binds = {
     { mainMod .. " + H", hl.dsp.focus({ direction = "left" }) },
     { mainMod .. " + L", hl.dsp.focus({ direction = "right" }) },
@@ -309,7 +338,7 @@ for _, b in ipairs(focus_binds) do
     hl.bind(b[1], b[2])
 end
 
--- Tile / Window Movement (SUPER + SHIFT + Vim Keys)
+-- Tile / Window Movement (SUPER + SHIFT + Arrow Keys)
 local move_binds = {
     { mainMod .. " + SHIFT + H", hl.dsp.window.move({ direction = "left" }) },
     { mainMod .. " + SHIFT + L", hl.dsp.window.move({ direction = "right" }) },
@@ -345,18 +374,25 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
+-- Clamshell Mode (Lid Switch Listener)
+-- Clamshell Mode (True monitor disable via Lua parser)
+hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd([[hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})']]),
+    { locked = true })
+hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd([[hyprctl eval 'hl.monitor({output="eDP-1", disabled=false})']]),
+    { locked = true })
+
 -- Media, Audio & Hardware Brightness Keys
 local media_keys = {
-    { "XF86AudioRaiseVolume",    "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
-    { "XF86AudioLowerVolume",    "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
-    { "XF86AudioMute",           "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
-    { "XF86AudioMicMute",        "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
-    { "XF86MonBrightnessUp",     "brightnessctl set 5%+" },
-    { "XF86MonBrightnessDown",   "brightnessctl set 5%-" },
-    { "XF86AudioNext",           "playerctl next" },
-    { "XF86AudioPrev",           "playerctl previous" },
-    { "XF86AudioPlay",           "playerctl play-pause" },
-    { "XF86AudioPause",          "playerctl play-pause" },
+    { "XF86AudioRaiseVolume",  "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
+    { "XF86AudioLowerVolume",  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
+    { "XF86AudioMute",         "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
+    { "XF86AudioMicMute",      "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
+    { "XF86MonBrightnessUp",   "brightnessctl set 5%+" },
+    { "XF86MonBrightnessDown", "brightnessctl set 5%-" },
+    { "XF86AudioNext",         "playerctl next" },
+    { "XF86AudioPrev",         "playerctl previous" },
+    { "XF86AudioPlay",         "playerctl play-pause" },
+    { "XF86AudioPause",        "playerctl play-pause" },
 }
 
 for _, k in ipairs(media_keys) do
@@ -368,14 +404,14 @@ end
 --------------------------------------------------------------------------------
 
 hl.window_rule({
-    name             = "suppress-maximize-events",
-    match            = { class = ".*" },
+    name           = "suppress-maximize-events",
+    match          = { class = ".*" },
     suppress_event = "maximize",
 })
 
 hl.window_rule({
-    name       = "fix-xwayland-drags",
-    match      = { class = "^$", title = "^$", xwayland = true, float = true },
+    name     = "fix-xwayland-drags",
+    match    = { class = "^$", title = "^$", xwayland = true, float = true },
     no_focus = true,
 })
 
@@ -434,14 +470,20 @@ chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
 ```bash
 #!/usr/bin/env bash
 
-CHOICE=$(printf "Lock\nLogout\nReboot\nShutdown" | wofi --dmenu -p "Power Menu")
+# Power menu options
+options="󰌾  Lock\n󰒲  Sleep\n󰍃  Logout\n󰑐  Reboot\n󰐥  Shutdown"
+# Pass options to Wofi
+chosen=$(echo -e "$options" | wofi --dmenu --prompt "Power" --width 200 --lines 5 --cache-file /dev/null)
 
-case "$CHOICE" in
+case "$chosen" in
     *"Lock")
         hyprlock
         ;;
+    *"Sleep")
+        systemctl suspend
+        ;;
     *"Logout")
-        uwsm stop
+        hyprctl dispatch exit
         ;;
     *"Reboot")
         systemctl reboot
@@ -588,7 +630,7 @@ esac
 
     "custom/power": {
         "format": "⏻",
-        "on-click": "uwsm app -- ~/.config/waybar/scripts/power-menu.sh",
+        "on-click": "~/.config/waybar/scripts/power-menu.sh",
         "tooltip": false
     }
 }
@@ -757,5 +799,42 @@ Exec=/usr/bin/thunar --sm-client-disable
 
 ```bash
 update-desktop-database ~/.local/share/applications
+
+```
+
+---
+
+## Phase 10: GTK & Flatpak Theming Engine
+
+Ensure your GTK3 applications (like Thunar) and Flatpak applications (like Zen Browser) correctly inherit your dark mode and Papirus icons.
+
+### 1. Hardcode GTK3 Settings (`settings.ini`)
+
+```bash
+mkdir -p ~/.config/gtk-3.0
+cat <<EOF > ~/.config/gtk-3.0/settings.ini
+[Settings]
+gtk-theme-name=Adwaita-dark
+gtk-icon-theme-name=Papirus-Dark
+gtk-application-prefer-dark-theme=1
+EOF
+
+```
+
+### 2. Install Flatpak Icon Bridge
+
+```bash
+flatpak install flathub org.freedesktop.Platform.Icontheme.Papirus
+
+```
+
+### 3. (Optional) Apply Nord Color Palette to Folders
+
+```bash
+# Download the papirus-folders script
+wget -qO- https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-folders/master/install.sh | sh
+
+# Apply the Nord color palette to the Dark theme
+papirus-folders -C nord --theme Papirus-Dark
 
 ```
