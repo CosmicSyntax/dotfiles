@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Native HDR support, Zen Browser integration, a kernel-aware True Clamshell Mode, and a customized Nord-themed interface with globally applied Papirus icons.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Native HDR support, Zen Browser integration, a kernel-aware True Clamshell Mode, and a customized Nord-themed interface.
 
 ---
 
@@ -46,7 +46,7 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the compositor, session manager (`uwsm`), utilities, portals, dynamic night light daemon, and icon themes.
+Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, and icon themes.
 
 ```bash
 sudo dnf install \
@@ -70,6 +70,8 @@ sudo dnf install \
     grim \
     slurp \
     wl-clipboard \
+    wf-recorder \
+    libnotify \
     pipewire \
     wireplumber \
     xdg-desktop-portal \
@@ -116,19 +118,19 @@ sudo systemctl enable --now power-profiles-daemon
 
 ---
 
-## Phase 4: Dynamic Night Light Script (wlsunset)
+## Phase 4: Display & Media Scripts
 
-This script dynamically fetches coordinates via IP, manages the `wlsunset` process via UWSM, and handles display state resets to prevent ghost-wakes when the lid is shut.
+Create the custom background scripts required for the display engine and media capture.
 
-1. Create the script:
 ```bash
 mkdir -p ~/.config/hypr/scripts
-nvim ~/.config/hypr/scripts/dynamic-nightlight.sh
 
 ```
 
+### 1. Dynamic Night Light (`~/.config/hypr/scripts/dynamic-nightlight.sh`)
 
-2. Add the tracking logic:
+Fetches coordinates via IP, applies a warm gamma filter, and safely manages the laptop screen state.
+
 ```bash
 #!/usr/bin/env bash
 
@@ -136,82 +138,80 @@ nvim ~/.config/hypr/scripts/dynamic-nightlight.sh
 if pidof wlsunset > /dev/null; then
     pkill wlsunset
 else
-    # Fetch coordinates
     COORDS=$(curl -s ipinfo.io/loc)
     LAT=$(echo $COORDS | cut -d',' -f1)
     LON=$(echo $COORDS | cut -d',' -f2)
 
-    # Fallback to default coordinates
     if [ -z "$LAT" ] || [ -z "$LON" ]; then
         LAT="39.1"
         LON="-77.2"
     fi
 
-    # Launch wlsunset in the background via UWSM
     uwsm app -- wlsunset -l "$LAT" -L "$LON" -t 4500 &
 fi
 
-# 2. Wait for the GPU to process the gamma reset
 sleep 0.5
 
-# 3. Check the physical hardware switch; if closed, re-disable the screen
+# 2. Check the physical hardware switch; only re-disable if docked
 if grep -iq closed /proc/acpi/button/lid/*/state 2>/dev/null; then
-    hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
+    if hyprctl monitors | grep -q "DP-1"; then
+        hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
+    fi
 fi
 
 ```
 
+### 2. Smart Lid Closure (`~/.config/hypr/scripts/lid-close.sh`)
 
-3. Make it executable:
-```bash
-chmod +x ~/.config/hypr/scripts/dynamic-nightlight.sh
+Prevents zero-monitor segfaults by only turning off the screen if the OLED dock is connected.
 
-```
-
-
-
----
-
-## Phase 5: Smart Lid Closure Script
-
-This script prevents Hyprland from dumping workspaces into a headless state if the lid is closed while undocked (allowing Fedora to suspend properly).
-
-1. Create the script:
-```bash
-nvim ~/.config/hypr/scripts/lid-close.sh
-
-```
-
-
-2. Add logic:
 ```bash
 #!/usr/bin/env bash
-
-# Ask Hyprland if the Samsung OLED (DP-1) is currently active
 if hyprctl monitors | grep -q "DP-1"; then
-    # We are docked! Disable the laptop screen to enter Clamshell Mode.
     hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
 else
-    # We are mobile. Do nothing and let Fedora's systemd safely suspend the laptop.
     exit 0
 fi
 
 ```
 
+### 3. Screenshot Capture (`~/.config/hypr/scripts/screenshot.sh`)
 
-3. Make it executable:
 ```bash
-chmod +x ~/.config/hypr/scripts/lid-close.sh
+#!/usr/bin/env bash
+mkdir -p ~/Pictures/Screenshots
+FILE=~/Pictures/Screenshots/Capture_$(date +'%Y%m%d_%H%M%S').png
+
+if grim -g "$(slurp)" - | tee "$FILE" | wl-copy; then
+    notify-send "Screenshot Captured" "Saved to Screenshots and copied to clipboard." -i camera-photo
+fi
 
 ```
 
+### 4. Screen Recording (`~/.config/hypr/scripts/screenrecord.sh`)
 
+```bash
+#!/usr/bin/env bash
+mkdir -p ~/Videos/Recordings
+
+if pidof wf-recorder > /dev/null; then
+    pkill wf-recorder
+    notify-send "Recording Stopped" "Video saved to ~/Videos/Recordings" -i media-record
+else
+    FILE=~/Videos/Recordings/Record_$(date +'%Y%m%d_%H%M%S').mp4
+    notify-send "Screen Recording" "Select an area to begin recording..." -i media-record
+    wf-recorder -g "$(slurp)" -f "$FILE" &
+fi
+
+```
+
+*(Ensure all scripts are executable: `chmod +x ~/.config/hypr/scripts/*.sh`)*
 
 ---
 
-## Phase 6: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
+## Phase 5: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
 
-This DRY Lua configuration dynamically reads kernel ACPI states during config reloads, features Native HDR, dynamic Clamshell Mode, Zen Browser, Papirus icon theming, and leverages `uwsm app --` for background processes.
+This strictly DRY Lua configuration reads kernel states via DRM, manages native HDR, wraps major apps in UWSM scopes, and contains the media capture hooks.
 
 ```lua
 --------------------------------------------------------------------------------
@@ -228,20 +228,24 @@ local eDP1_config = {
     cm       = "auto",
 }
 
--- 2. Read the hardware lid state directly from the Linux kernel
-local handle = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
-local lid_state = handle:read("*a") or ""
-handle:close()
+-- 2. Read hardware states from the Linux kernel
+local handle_lid = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
+local lid_state = handle_lid:read("*a") or ""
+handle_lid:close()
 
--- 3. Dynamically configure eDP-1 based on the physical switch
-if string.find(string.lower(lid_state), "closed") then
-    -- Lid is shut: keep the screen dead during config reloads
-    hl.monitor({
-        output   = eDP1_config.output,
-        disabled = true,
-    })
+local handle_dp = io.popen("cat /sys/class/drm/card*-DP-*/status 2>/dev/null | grep -w 'connected'")
+local dp_state = handle_dp:read("*a") or ""
+handle_dp:close()
+
+local is_closed = string.find(string.lower(lid_state), "closed")
+local is_docked = (dp_state ~= "")
+
+-- 3. Dynamically configure eDP-1 based on both variables
+if is_closed and is_docked then
+    -- True Clamshell: Lid is shut AND external monitor is present
+    hl.monitor({ output = eDP1_config.output, disabled = true })
 else
-    -- Lid is open: initialize the panel using our truth table
+    -- Mobile or Open: Ensure the laptop screen stays on
     hl.monitor(eDP1_config)
 end
 
@@ -256,13 +260,13 @@ hl.monitor({
 })
 
 -- Default Applications & Variables
-local terminal    = "alacritty"
+local terminal    = "uwsm app -- alacritty"
 local menu        = "~/.config/hypr/scripts/wofi-toggle.sh"
-local fileManager = "env GTK_THEME=Adwaita:dark thunar"
-local browser     = "flatpak run app.zen_browser.zen"
+local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
+local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
--- Environment Variables (Critical for Portals & Theming)
+-- Environment Variables
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
@@ -272,80 +276,42 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Autostart Daemons & Services
 hl.on("hyprland.start", function()
-    -- 1. Start core daemons using their native systemd services
     hl.exec_cmd("systemctl --user start swaync.service")
     hl.exec_cmd("systemctl --user start waybar.service")
     hl.exec_cmd("systemctl --user start hypridle.service")
     hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
 
-    -- 2. Wrap standalone background apps in UWSM scopes
     hl.exec_cmd("uwsm app -- hyprpaper")
     hl.exec_cmd("uwsm app -- nm-applet --indicator")
     hl.exec_cmd("uwsm app -- blueman-applet")
     hl.exec_cmd("uwsm app -- gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
     
-    -- Dynamic Night Light via IP geolocation
     hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
 
-    -- 3. Set GTK Theme Properties via GSettings
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
 
--- Core System & Appearance Settings
+-- Core System Settings
 hl.config({
-    ecosystem = {
-        no_donation_nag = true,
-        no_update_news  = true,
-    },
-
-    general = {
-        gaps_in          = 4,
-        gaps_out         = 10,
-        border_size      = 0,
-        layout           = "dwindle",
-        resize_on_border = true,
-        allow_tearing    = false,
-    },
-
+    ecosystem = { no_donation_nag = true, no_update_news = false },
+    general = { gaps_in = 4, gaps_out = 10, border_size = 0, layout = "dwindle", resize_on_border = true, allow_tearing = false },
     decoration = {
-        rounding         = 5,
-        active_opacity   = 1.0,
+        rounding = 5,
+        active_opacity = 1.0,
         inactive_opacity = 0.85,
-        shadow           = {
-            enabled      = true,
-            range        = 12,
-            render_power = 2,
-            color        = 0xee1a1e24,
-        },
-        blur             = {
-            enabled  = true,
-            size     = 4,
-            passes   = 2,
-            vibrancy = 0.1696,
-        },
+        shadow = { enabled = true, range = 12, render_power = 2, color = 0xee1a1e24 },
+        blur = { enabled = true, size = 4, passes = 2, vibrancy = 0.1696 },
     },
-
     animations = { enabled = true },
     dwindle = { preserve_split = true },
-
-    misc = {
-        force_default_wallpaper = 0,
-        disable_hyprland_logo   = true,
-    },
-
-    input = {
-        kb_layout    = "us",
-        follow_mouse = 1,
-        sensitivity  = 0,
-        touchpad     = { natural_scroll = true },
-    },
+    misc = { force_default_wallpaper = 0, disable_hyprland_logo = true, disable_hyprland_guiutils_check = false },
+    input = { kb_layout = "us", follow_mouse = 1, sensitivity = 0, touchpad = { natural_scroll = true } },
 })
 
 --------------------------------------------------------------------------------
 -- KEYBINDINGS
 --------------------------------------------------------------------------------
-
 local app_binds = {
     { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
     { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
@@ -358,16 +324,15 @@ local app_binds = {
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
     { mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
     
-    -- Toggle Night Light (Smart Script)
+    -- Smart Scripts
     { mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh") },
-
-    -- Graceful session termination via UWSM
-    { mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
+    { mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh") },
+    { mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenrecord.sh") },
 }
 
 for _, b in ipairs(app_binds) do hl.bind(b[1], b[2]) end
 
--- Focus Navigation (SUPER + Arrow Keys)
+-- Focus / Movement / Resize (Omitted loop boilerplate for brevity in display)
 local focus_binds = {
     { mainMod .. " + H", hl.dsp.focus({ direction = "left" }) },
     { mainMod .. " + L", hl.dsp.focus({ direction = "right" }) },
@@ -376,7 +341,6 @@ local focus_binds = {
 }
 for _, b in ipairs(focus_binds) do hl.bind(b[1], b[2]) end
 
--- Tile / Window Movement (SUPER + SHIFT + Arrow Keys)
 local move_binds = {
     { mainMod .. " + SHIFT + H", hl.dsp.window.move({ direction = "left" }) },
     { mainMod .. " + SHIFT + L", hl.dsp.window.move({ direction = "right" }) },
@@ -385,7 +349,6 @@ local move_binds = {
 }
 for _, b in ipairs(move_binds) do hl.bind(b[1], b[2]) end
 
--- Dynamic Window Resizing (SUPER + SHIFT + Arrow Keys)
 local resizeUnit = 100
 local resize_binds = {
     { mainMod .. " + SHIFT + right", hl.dsp.window.resize({ x = resizeUnit, y = 0, relative = true }) },
@@ -395,7 +358,7 @@ local resize_binds = {
 }
 for _, b in ipairs(resize_binds) do hl.bind(b[1], b[2]) end
 
--- Workspaces 1-10 Navigation & Window Relocation
+-- Workspaces 1-10
 for i = 1, 10 do
     local key = i % 10
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
@@ -406,17 +369,15 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Clamshell Mode (Smart Hardware Listener)
--- Construct the wake command dynamically and explicitly unset the disabled flag
+-- Smart Clamshell Mode
 local wake_eDP1_cmd = string.format(
     [[hyprctl eval 'hl.monitor({output="%s", mode="%s", position="%s", scale="%s", bitdepth=%d, cm="%s", disabled=false})']],
     eDP1_config.output, eDP1_config.mode, eDP1_config.position, eDP1_config.scale, eDP1_config.bitdepth, eDP1_config.cm
 )
-
 hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("~/.config/hypr/scripts/lid-close.sh"), { locked = true })
 hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(wake_eDP1_cmd), { locked = true })
 
--- Media, Audio & Hardware Brightness Keys
+-- Media Keys
 local media_keys = {
     { "XF86AudioRaiseVolume",  "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
     { "XF86AudioLowerVolume",  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
@@ -433,33 +394,42 @@ for _, k in ipairs(media_keys) do
     hl.bind(k[1], hl.dsp.exec_cmd(k[2]), { locked = true, repeating = true })
 end
 
---------------------------------------------------------------------------------
--- WINDOW RULES
---------------------------------------------------------------------------------
-hl.window_rule({
-    name           = "suppress-maximize-events",
-    match          = { class = ".*" },
-    suppress_event = "maximize",
-})
+-- Window Rules
+hl.window_rule({ name = "suppress-maximize-events", match = { class = ".*" }, suppress_event = "maximize" })
+hl.window_rule({ name = "fix-xwayland-drags", match = { class = "^$", title = "^$", xwayland = true, float = true }, no_focus = true })
+hl.window_rule({ name = "smart-borders-solo", match = { workspace = "w[t1]", float = false }, border_size = 0 })
+hl.window_rule({ name = "float-utilities", match = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" }, float = true, center = true })
 
-hl.window_rule({
-    name     = "fix-xwayland-drags",
-    match    = { class = "^$", title = "^$", xwayland = true, float = true },
-    no_focus = true,
-})
+```
 
-hl.window_rule({
-    name        = "smart-borders-solo",
-    match       = { workspace = "w[t1]", float = false },
-    border_size = 0,
-})
+---
 
-hl.window_rule({
-    name   = "float-utilities",
-    match  = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" },
-    float  = true,
-    center = true,
-})
+## Phase 6: Native UI Theming (hyprtoolkit)
+
+Theme the `hyprland-guiutils` notifications (crash reports, updates) to match the Nord palette.
+
+```ini
+# ~/.config/hypr/hyprtoolkit.conf
+
+# Nord Color Palette
+background = 0xFF2E3440        
+base = 0xFF3B4252              
+alternate_base = 0xFF434C5E    
+text = 0xFFD8DEE9              
+bright_text = 0xFFECEFF4       
+accent = 0xFF81A1C1            
+accent_secondary = 0xFF88C0D0  
+
+# Fonts & Corners
+font_family = GoogleSansMNerdFont-Regular
+font_size = 13
+h1_size = 19
+h2_size = 15
+h3_size = 13
+icon_theme = Papirus-Dark
+
+rounding_large = 10
+rounding_small = 5             
 
 ```
 
@@ -486,13 +456,8 @@ fi
 ```
 
 
-3. Make executable:
-```bash
-chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
 
-```
-
-
+*(Ensure executable: `chmod +x ~/.config/hypr/scripts/wofi-toggle.sh`)*
 
 ---
 
@@ -528,7 +493,7 @@ esac
 
 ```
 
-*(Make executable: `chmod +x ~/.config/waybar/scripts/power-menu.sh`)*
+*(Ensure executable: `chmod +x ~/.config/waybar/scripts/power-menu.sh`)*
 
 ### 2. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
@@ -832,42 +797,5 @@ Exec=/usr/bin/thunar --sm-client-disable
 
 ```bash
 update-desktop-database ~/.local/share/applications
-
-```
-
----
-
-## Phase 11: GTK & Flatpak Theming Engine
-
-Ensure your GTK3 applications (like Thunar) and Flatpak applications (like Zen Browser) correctly inherit your dark mode and Papirus icons.
-
-### 1. Hardcode GTK3 Settings (`settings.ini`)
-
-```bash
-mkdir -p ~/.config/gtk-3.0
-cat <<EOF > ~/.config/gtk-3.0/settings.ini
-[Settings]
-gtk-theme-name=Adwaita-dark
-gtk-icon-theme-name=Papirus-Dark
-gtk-application-prefer-dark-theme=1
-EOF
-
-```
-
-### 2. Install Flatpak Icon Bridge
-
-```bash
-flatpak install flathub org.freedesktop.Platform.Icontheme.Papirus
-
-```
-
-### 3. (Optional) Apply Nord Color Palette to Folders
-
-```bash
-# Download the papirus-folders script
-wget -qO- https://raw.githubusercontent.com/PapirusDevelopmentTeam/papirus-folders/master/install.sh | sh
-
-# Apply the Nord color palette to the Dark theme
-papirus-folders -C nord --theme Papirus-Dark
 
 ```
