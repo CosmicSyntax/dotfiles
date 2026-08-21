@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular**, power-profiles-daemon, an empty-state collapsing active window module, a Wofi toggle script wrapper, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** (featuring the Bluetooth and power-profiles-daemon modules), an empty-state collapsing active window module, a Wofi toggle script wrapper, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
 
 ---
 
@@ -404,7 +404,7 @@ input-field {
 
 ### 1. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
-Includes the collapse-on-empty window module and notification bell widget module:
+Includes the Bluetooth module, collapse-on-empty window module, and notification bell widget module:
 
 ```jsonc
 {
@@ -425,6 +425,7 @@ Includes the collapse-on-empty window module and notification bell widget module
         "power-profiles-daemon",
         "pulseaudio",
         "network",
+        "bluetooth",
         "backlight",
         "battery",
         "clock",
@@ -486,6 +487,18 @@ Includes the collapse-on-empty window module and notification bell widget module
         "on-click": "nm-connection-editor"
     },
 
+    "bluetooth": {
+        "format": " {status}",
+        "format-disabled": "󰂲 Off",
+        "format-off": "󰂲 Off",
+        "format-on": "󰂯 On",
+        "format-connected": "󰂱 {device_alias}",
+        "tooltip-format": "{controller_alias}\t{controller_address}",
+        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
+        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
+        "on-click": "blueman-manager"
+    },
+
     "pulseaudio": {
         "format": "{icon} {volume}%",
         "format-bluetooth": "{icon} {volume}% 󰂯",
@@ -545,7 +558,7 @@ Includes the collapse-on-empty window module and notification bell widget module
 
 ### 2. Stylesheet (`~/.config/waybar/style.css`)
 
-Includes the empty state CSS selector rule to completely clear out empty window block containers:
+Includes the empty state CSS selector rule and Bluetooth module styling:
 
 ```css
 * {
@@ -590,6 +603,7 @@ window#waybar.empty #window {
 #battery,
 #backlight,
 #network,
+#bluetooth,
 #pulseaudio,
 #custom-notification,
 #custom-power,
