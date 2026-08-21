@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Floorp integration, Vim-style window navigation, and a customized Nord-themed interface.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Native HDR support, Zen Browser integration, Vim-style window navigation, and a customized Nord-themed interface.
 
 ---
 
@@ -46,7 +46,7 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the compositor, session manager (`uwsm`), utilities, and portals.
+Install the compositor, session manager (`uwsm`), utilities, portals, and dynamic night light daemon.
 
 ```bash
 sudo dnf install \
@@ -74,7 +74,8 @@ sudo dnf install \
     wireplumber \
     xdg-desktop-portal \
     xdg-desktop-portal-hyprland \
-    xdg-desktop-portal-gtk
+    xdg-desktop-portal-gtk \
+    wlsunset
 
 ```
 
@@ -114,28 +115,75 @@ sudo systemctl enable --now power-profiles-daemon
 
 ---
 
-## Phase 4: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
+## Phase 4: Dynamic Night Light Script (wlsunset)
 
-This Lua configuration leverages `uwsm app --` to launch processes without systemd warnings and delegates background daemons to their native `systemctl` user services.
+Create a wrapper script that dynamically fetches your latitude and longitude via IP to trigger night-light transitions based on your local sunset.
+
+1. Create the script:
+```bash
+mkdir -p ~/.config/hypr/scripts
+nvim ~/.config/hypr/scripts/dynamic-nightlight.sh
+
+```
+
+
+2. Add the tracking logic:
+```bash
+#!/usr/bin/env bash
+
+# Fetch latitude and longitude based on your current IP address
+COORDS=$(curl -s ipinfo.io/loc)
+
+# Split the output into separate variables
+LAT=$(echo $COORDS | cut -d',' -f1)
+LON=$(echo $COORDS | cut -d',' -f2)
+
+# Fallback to default coordinates if offline on boot
+if [ -z "$LAT" ] || [ -z "$LON" ]; then
+    LAT="39.1"
+    LON="-77.2"
+fi
+
+# Launch wlsunset with the dynamic coordinates (Warmth: 4500K)
+wlsunset -l "$LAT" -L "$LON" -t 4500
+
+```
+
+
+3. Make it executable:
+```bash
+chmod +x ~/.config/hypr/scripts/dynamic-nightlight.sh
+
+```
+
+
+
+---
+
+## Phase 5: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
+
+This Lua configuration features Native HDR, 2560x1600 rendering, Zen Browser, dynamic night light, and leverages `uwsm app --` to launch processes natively inside systemd.
 
 ```lua
 --------------------------------------------------------------------------------
 -- HYPRLAND CONFIGURATION (LUA)
 --------------------------------------------------------------------------------
 
--- Monitors (HiDPI laptop panel)
+-- Monitors (HiDPI laptop panel with Native HDR enabled)
 hl.monitor({
     output   = "eDP-1",
-    mode     = "3840x2400@60",
+    mode     = "2560x1600@60",
     position = "0x0",
-    scale    = "1.6",
+    scale    = "1.0",
+    bitdepth = 10,
+    cm       = "hdr",
 })
 
 -- Default Applications & Variables (Wrapped in UWSM)
 local terminal    = "uwsm app -- alacritty"
 local menu        = "uwsm app -- ~/.config/hypr/scripts/wofi-toggle.sh"
 local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
-local browser     = "uwsm app -- flatpak run one.ablaze.floorp"
+local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
 -- Environment Variables
@@ -159,6 +207,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("uwsm app -- nm-applet --indicator")
     hl.exec_cmd("uwsm app -- blueman-applet")
     hl.exec_cmd("uwsm app -- gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
+    
+    -- Dynamic Night Light via IP geolocation
+    hl.exec_cmd("uwsm app -- ~/.config/hypr/scripts/dynamic-nightlight.sh")
 
     -- 3. Set GTK Theme Properties
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
@@ -224,20 +275,22 @@ hl.config({
 --------------------------------------------------------------------------------
 
 local app_binds = {
-	{ mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
-	{ mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
-	{ mainMod .. " + E",         hl.dsp.exec_cmd(fileManager) },
-	{ mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
-	{ mainMod .. " + Q",         hl.dsp.window.close() },
-	{ mainMod .. " + P",         hl.dsp.window.pseudo() },
-	{ mainMod .. " + V",         hl.dsp.layout("togglesplit") },
-	{ mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
-	{ mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
-	{ mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
-	-- { mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock") },
-
-	-- Graceful session termination via UWSM
-	{ mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
+    { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
+    { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
+    { mainMod .. " + E",         hl.dsp.exec_cmd(fileManager) },
+    { mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
+    { mainMod .. " + Q",         hl.dsp.window.close() },
+    { mainMod .. " + P",         hl.dsp.window.pseudo() },
+    { mainMod .. " + V",         hl.dsp.layout("togglesplit") },
+    { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
+    { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
+    { mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
+    
+    -- Toggle Night Light (Restarts dynamic script)
+    { mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("pkill wlsunset || uwsm app -- ~/.config/hypr/scripts/dynamic-nightlight.sh") },
+    
+    -- Graceful session termination via UWSM
+    { mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
 }
 
 for _, b in ipairs(app_binds) do
@@ -343,11 +396,10 @@ hl.window_rule({
 
 ---
 
-## Phase 5: Wofi Toggle Script Wrapper
+## Phase 6: Wofi Toggle Script Wrapper
 
 1. Create the script:
 ```bash
-mkdir -p ~/.config/hypr/scripts
 nvim ~/.config/hypr/scripts/wofi-toggle.sh
 
 ```
@@ -375,7 +427,7 @@ chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
 
 ---
 
-## Phase 6: Waybar Setup & UWSM Power Menu
+## Phase 7: Waybar Setup & UWSM Power Menu
 
 ### 1. UWSM Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
 
@@ -538,18 +590,6 @@ esac
         "format": "⏻",
         "on-click": "uwsm app -- ~/.config/waybar/scripts/power-menu.sh",
         "tooltip": false
-    },
-
-    "power-profiles-daemon": {
-        "format": "{icon}",
-        "tooltip-format": "Profile: {profile}\nDriver: {driver}",
-        "tooltip": true,
-        "format-icons": {
-            "default": "",
-            "performance": "",
-            "balanced": "",
-            "power-saver": ""
-        }
     }
 }
 
@@ -612,13 +652,8 @@ window#waybar.empty #window {
     color: #eceff4;
 }
 
-#battery.charging {
-    color: #a3be8c;
-}
-
-#battery.warning:not(.charging) {
-    color: #ebcb8b;
-}
+#battery.charging { color: #a3be8c; }
+#battery.warning:not(.charging) { color: #ebcb8b; }
 
 #battery.critical:not(.charging) {
     color: #bf616a;
@@ -630,27 +665,17 @@ window#waybar.empty #window {
 }
 
 @keyframes blink {
-    to {
-        background-color: #bf616a;
-        color: #2e3440;
-    }
+    to { background-color: #bf616a; color: #2e3440; }
 }
 
-#custom-power {
-    color: #bf616a;
-    margin-right: 6px;
-}
-
-#custom-power:hover {
-    background: #bf616a;
-    color: #2e3440;
-}
+#custom-power { color: #bf616a; margin-right: 6px; }
+#custom-power:hover { background: #bf616a; color: #2e3440; }
 
 ```
 
 ---
 
-## Phase 7: SwayNC Configuration & Nord Styling
+## Phase 8: SwayNC Configuration & Nord Styling
 
 ### 1. Configuration (`~/.config/swaync/config.json`)
 
@@ -676,18 +701,9 @@ window#waybar.empty #window {
     "mpris"
   ],
   "widget-config": {
-    "title": {
-      "text": "Notification Center",
-      "clear-all-button": true,
-      "button-text": "Clear All"
-    },
-    "dnd": {
-      "text": "Do Not Disturb"
-    },
-    "mpris": {
-      "image-size": 96,
-      "blur": 14
-    }
+    "title": { "text": "Notification Center", "clear-all-button": true, "button-text": "Clear All" },
+    "dnd": { "text": "Do Not Disturb" },
+    "mpris": { "image-size": 96, "blur": 14 }
   }
 }
 
@@ -697,77 +713,24 @@ window#waybar.empty #window {
 
 ```css
 /* --- Nord Theme for SwayNC --- */
+* { font-family: "GoogleSansMNerdFont-Regular", sans-serif; font-size: 13px; background: transparent; box-shadow: none; }
 
-* {
-  font-family: "GoogleSansMNerdFont-Regular", sans-serif;
-  font-size: 13px;
-  background: transparent;
-  box-shadow: none;
-}
-
-.control-center {
-  background: rgba(46, 52, 64, 0.95);
-  border: 2px solid #81a1c1;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  color: #eceff4;
-  padding: 12px;
-}
-
-.control-center-list,
-.notification-row,
-.notification-background {
-  background: transparent;
-  background-color: transparent;
-  box-shadow: none;
-  border: none;
-  margin: 4px 0;
-  padding: 0px;
-}
-
-.notification {
-  background: #3b4252;
-  border: 2px solid #81a1c1;
-  border-radius: 10px;
-  padding: 8px;
-  color: #eceff4;
-  box-shadow: none;
-}
-
-.notification-content {
-  background: transparent;
-  color: #eceff4;
-}
-
-.notification-icon {
-  min-width: 0px;
-  min-height: 0px;
-  margin: 0px;
-  display: none;
-}
-
+.control-center { background: rgba(46, 52, 64, 0.95); border: 2px solid #81a1c1; border-radius: 12px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); color: #eceff4; padding: 12px; }
+.control-center-list, .notification-row, .notification-background { background: transparent; box-shadow: none; border: none; margin: 4px 0; padding: 0px; }
+.notification { background: #3b4252; border: 2px solid #81a1c1; border-radius: 10px; padding: 8px; color: #eceff4; }
+.notification-content { background: transparent; color: #eceff4; }
+.notification-icon { min-width: 0px; min-height: 0px; margin: 0px; display: none; }
 .summary { font-weight: bold; color: #eceff4; font-size: 14px; }
 .body { color: #d8dee9; font-size: 12px; }
 .time { color: #4c566a; font-size: 10px; }
-
-.close-button {
-  background: #434c5e;
-  color: #eceff4;
-  border-radius: 6px;
-  padding: 2px 6px;
-}
+.close-button { background: #434c5e; color: #eceff4; border-radius: 6px; padding: 2px 6px; }
 .close-button:hover { background: #bf616a; color: #2e3440; }
-
 .widget-title { color: #eceff4; margin: 8px; font-size: 16px; }
-.widget-title>button {
-  background: #3b4252; color: #eceff4; border: 1px solid #434c5e; border-radius: 6px; padding: 4px 10px;
-}
+.widget-title>button { background: #3b4252; color: #eceff4; border: 1px solid #434c5e; border-radius: 6px; padding: 4px 10px; }
 .widget-title>button:hover { background: #81a1c1; color: #2e3440; }
-
 .widget-dnd { background: #3b4252; border-radius: 8px; padding: 8px; margin: 8px 0; color: #eceff4; }
 .widget-dnd switch { background: #434c5e; border-radius: 12px; }
 .widget-dnd switch:checked { background: #81a1c1; }
-
 .widget-mpris { background: #3b4252; border-radius: 10px; padding: 10px; margin-top: 8px; color: #eceff4; }
 .widget-mpris-player { padding: 8px; }
 
@@ -775,7 +738,7 @@ window#waybar.empty #window {
 
 ---
 
-## Phase 8: Thunar File Manager DBus Bridge
+## Phase 9: Thunar File Manager DBus Bridge
 
 ```bash
 xdg-mime default thunar.desktop inode/directory
