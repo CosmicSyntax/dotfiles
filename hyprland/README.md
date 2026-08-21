@@ -224,18 +224,20 @@ hl.config({
 --------------------------------------------------------------------------------
 
 local app_binds = {
-    { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
-    { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
-    { mainMod .. " + E",         hl.dsp.exec_cmd(fileManager) },
-    { mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
-    { mainMod .. " + Q",         hl.dsp.window.close() },
-    { mainMod .. " + P",         hl.dsp.window.pseudo() },
-    { mainMod .. " + V",         hl.dsp.layout("togglesplit") },
-    { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
-    { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
-    
-    -- Graceful session termination via UWSM
-    { mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
+	{ mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
+	{ mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
+	{ mainMod .. " + E",         hl.dsp.exec_cmd(fileManager) },
+	{ mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
+	{ mainMod .. " + Q",         hl.dsp.window.close() },
+	{ mainMod .. " + P",         hl.dsp.window.pseudo() },
+	{ mainMod .. " + V",         hl.dsp.layout("togglesplit") },
+	{ mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
+	{ mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
+	{ mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
+	-- { mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock") },
+
+	-- Graceful session termination via UWSM
+	{ mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
 }
 
 for _, b in ipairs(app_binds) do
