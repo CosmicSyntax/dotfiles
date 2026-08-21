@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** (featuring the Bluetooth and power-profiles-daemon modules), an empty-state collapsing active window module, a Wofi toggle script wrapper, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
+This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete working Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** (featuring Bluetooth and power profiles), an empty-state collapsing active window module, a Wofi toggle script wrapper, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
 
 ---
 
@@ -161,7 +161,7 @@ chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
 
 ## Phase 5: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
-This is your complete, production-ready Hyprland Lua script, handling monitors, environment variables, startup daemons, custom keybindings, and window rules (`swaync` replaces `dunst` here).
+This is your complete, production-ready, working Hyprland Lua script, handling monitors, environment variables, startup daemons, Vim-style focus and movement keybindings, relative resizing, and window rules:
 
 ```lua
 --------------------------------------------------------------------------------
@@ -180,7 +180,7 @@ hl.monitor({
 local terminal    = "alacritty"
 local menu        = "~/.config/hypr/scripts/wofi-toggle.sh"
 local fileManager = "env GTK_THEME=Adwaita:dark thunar"
-local browser     = "flatpak run one.ablaze.floorp"
+local browser     = "flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
 -- Environment Variables (Critical for Portals & Theming)
@@ -200,7 +200,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("blueman-applet")
     hl.exec_cmd("swaync")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
-    
+
     -- Background Keyring Daemon
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
 
@@ -225,7 +225,7 @@ hl.config({
             inactive_border = "#2e3440",
         },
         layout           = "dwindle",
-        resize_on_border = false,
+        resize_on_border = true, -- Enables mouse-dragging on inner split borders
         allow_tearing    = false,
     },
 
@@ -279,38 +279,51 @@ local app_binds = {
     { mainMod .. " + B",         hl.dsp.exec_cmd(browser) },
     { mainMod .. " + Q",         hl.dsp.window.close() },
     { mainMod .. " + P",         hl.dsp.window.pseudo() },
-    { mainMod .. " + J",         hl.dsp.layout("togglesplit") },
+    { mainMod .. " + V",         hl.dsp.layout("togglesplit") },
     { mainMod .. " + M",         hl.dsp.exit() },
     { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
-    { mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock") },
+    -- { mainMod .. " + L",      hl.dsp.exec_cmd("hyprlock") },
 }
 
 for _, b in ipairs(app_binds) do
     hl.bind(b[1], b[2])
 end
 
--- Focus Navigation (SUPER + Arrow Keys)
+-- Focus Navigation (SUPER + Vim Keys)
 local focus_binds = {
-    { mainMod .. " + left",  hl.dsp.focus({ direction = "left" }) },
-    { mainMod .. " + right", hl.dsp.focus({ direction = "right" }) },
-    { mainMod .. " + up",    hl.dsp.focus({ direction = "up" }) },
-    { mainMod .. " + down",  hl.dsp.focus({ direction = "down" }) },
+    { mainMod .. " + H", hl.dsp.focus({ direction = "left" }) },
+    { mainMod .. " + L", hl.dsp.focus({ direction = "right" }) },
+    { mainMod .. " + K", hl.dsp.focus({ direction = "up" }) },
+    { mainMod .. " + J", hl.dsp.focus({ direction = "down" }) },
 }
 
 for _, b in ipairs(focus_binds) do
     hl.bind(b[1], b[2])
 end
 
--- Tile / Window Movement (SUPER + SHIFT + Arrow Keys)
+-- Tile / Window Movement (SUPER + SHIFT + Vim Keys)
 local move_binds = {
-    { mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }) },
-    { mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }) },
-    { mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }) },
-    { mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }) },
+    { mainMod .. " + SHIFT + H", hl.dsp.window.move({ direction = "left" }) },
+    { mainMod .. " + SHIFT + L", hl.dsp.window.move({ direction = "right" }) },
+    { mainMod .. " + SHIFT + K", hl.dsp.window.move({ direction = "up" }) },
+    { mainMod .. " + SHIFT + J", hl.dsp.window.move({ direction = "down" }) },
 }
 
 for _, b in ipairs(move_binds) do
+    hl.bind(b[1], b[2])
+end
+
+-- Dynamic Window Resizing (SUPER + SHIFT + Arrow Keys)
+local resizeUnit = 100
+local resize_binds = {
+    { mainMod .. " + SHIFT + right", hl.dsp.window.resize({ x = resizeUnit, y = 0, relative = true }) },
+    { mainMod .. " + SHIFT + left",  hl.dsp.window.resize({ x = -resizeUnit, y = 0, relative = true }) },
+    { mainMod .. " + SHIFT + up",    hl.dsp.window.resize({ x = 0, y = -resizeUnit, relative = true }) },
+    { mainMod .. " + SHIFT + down",  hl.dsp.window.resize({ x = 0, y = resizeUnit, relative = true }) },
+}
+
+for _, b in ipairs(resize_binds) do
     hl.bind(b[1], b[2])
 end
 
