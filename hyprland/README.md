@@ -1,18 +1,16 @@
 ---
 
-# Comprehensive Fedora Hyprland Environment Setup Guide
+# Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This document provides the complete, end-to-end blueprint for building a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**. It includes purging the GNOME Desktop Environment shell infrastructure, setting up `greetd` terminal login, your complete working Hyprland Lua script, `hyprlock` authentication setup, Waybar status bar configurations with **GoogleSansMNerdFont-Regular** (featuring Bluetooth and power profiles), an empty-state collapsing active window module, a Wofi toggle script wrapper, browser-to-file-manager bridges, and your custom Nord-themed **SwayNC** notification center.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Floorp integration, Vim-style window navigation, and a customized Nord-themed interface.
 
 ---
 
-## Phase 1: Purging GNOME Desktop Infrastructure & Display Managers
+## Phase 1: Purging GNOME Desktop Infrastructure
 
-To completely strip out the core GNOME Desktop Environment (DE) shell and its background session components while leaving standalone user utilities untouched, run the following commands:
+Completely strip out the core GNOME Desktop Environment (DE) shell and competing portals.
 
-### 1. Remove Core GNOME Shell, Mutter, and GDM
-
-Tear out `gnome-shell`, session targets, Mutter window management infrastructure, GDM, and competing portals:
+### 1. Remove Core GNOME Shell & Mutter
 
 ```bash
 sudo systemctl disable gdm
@@ -26,9 +24,7 @@ sudo dnf remove \
 
 ```
 
-### 2. Remove Unused GNOME Panels & Background Daemons
-
-Remove background shell extensions, desktop backgrounds, and initial setup wizards:
+### 2. Remove Unused Background Daemons
 
 ```bash
 sudo dnf remove \
@@ -39,9 +35,7 @@ sudo dnf remove \
 
 ```
 
-### 3. Sweep Away Orphaned Dependencies
-
-Clean up any remaining system libraries pulled in solely by `gnome-shell`:
+### 3. Clean Dependencies
 
 ```bash
 sudo dnf autoremove
@@ -52,11 +46,12 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the window manager, greeter, applets, audio/network tools, utilities, screen-sharing portals, and SwayNC notification center:
+Install the compositor, session manager (`uwsm`), utilities, and portals.
 
 ```bash
 sudo dnf install \
     hyprland \
+    uwsm \
     greetd \
     agreety \
     waybar \
@@ -85,9 +80,9 @@ sudo dnf install \
 
 ---
 
-## Phase 3: Greetd Configuration (Terminal Login)
+## Phase 3: Greetd & UWSM Configuration (Terminal Login)
 
-Configure `greetd` with `agreety` to provide a clean text login prompt on Virtual Terminal 1 (`vt = 1`).
+Configure `greetd` to launch Hyprland securely inside a UWSM systemd scope on Virtual Terminal 1.
 
 1. Open the configuration file:
 ```bash
@@ -102,21 +97,15 @@ sudo nvim /etc/greetd/config.toml
 vt = 1
 
 [default_session]
-command = "agreety --cmd start-hyprland"
+command = "agreety --cmd 'uwsm start hyprland.desktop'"
 user = "greetd"
 
 ```
 
 
-3. Enable the service:
+3. Enable the required services:
 ```bash
 sudo systemctl enable greetd
-
-```
-
-
-4. Ensure the power profiles service daemon is active:
-```bash
 sudo systemctl enable --now power-profiles-daemon
 
 ```
@@ -125,43 +114,9 @@ sudo systemctl enable --now power-profiles-daemon
 
 ---
 
-## Phase 4: Wofi Toggle Script Wrapper
+## Phase 4: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
 
-To prevent `SUPER + R` from stacking multiple instances of Wofi on top of each other, create a toggle script:
-
-1. Create the script file:
-```bash
-mkdir -p ~/.config/hypr/scripts
-nvim ~/.config/hypr/scripts/wofi-toggle.sh
-
-```
-
-
-2. Add the toggle logic:
-```bash
-#!/usr/bin/env bash
-if pidof wofi > /dev/null; then
-    killall wofi
-else
-    wofi --show drun
-fi
-
-```
-
-
-3. Make it executable:
-```bash
-chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
-
-```
-
-
-
----
-
-## Phase 5: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
-
-This is your complete, production-ready, working Hyprland Lua script, handling monitors, environment variables, startup daemons, Vim-style focus and movement keybindings, relative resizing, and window rules:
+This Lua configuration leverages `uwsm app --` to launch processes without systemd warnings and delegates background daemons to their native `systemctl` user services.
 
 ```lua
 --------------------------------------------------------------------------------
@@ -176,14 +131,14 @@ hl.monitor({
     scale    = "1.6",
 })
 
--- Default Applications & Variables
-local terminal    = "alacritty"
-local menu        = "~/.config/hypr/scripts/wofi-toggle.sh"
-local fileManager = "env GTK_THEME=Adwaita:dark thunar"
-local browser     = "flatpak run app.zen_browser.zen"
+-- Default Applications & Variables (Wrapped in UWSM)
+local terminal    = "uwsm app -- alacritty"
+local menu        = "uwsm app -- ~/.config/hypr/scripts/wofi-toggle.sh"
+local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
+local browser     = "uwsm app -- flatpak run one.ablaze.floorp"
 local mainMod     = "SUPER"
 
--- Environment Variables (Critical for Portals & Theming)
+-- Environment Variables
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
@@ -193,18 +148,19 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Autostart Daemons & Services
 hl.on("hyprland.start", function()
-    hl.exec_cmd("waybar")
-    hl.exec_cmd("hyprpaper")
-    hl.exec_cmd("hypridle")
-    hl.exec_cmd("nm-applet --indicator")
-    hl.exec_cmd("blueman-applet")
-    hl.exec_cmd("swaync")
-    hl.exec_cmd("systemctl --user start hyprpolkitagent")
+    -- 1. Start core daemons using native systemd services
+    hl.exec_cmd("systemctl --user start swaync.service")
+    hl.exec_cmd("systemctl --user start waybar.service")
+    hl.exec_cmd("systemctl --user start hypridle.service")
+    hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
 
-    -- Background Keyring Daemon
-    hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
+    -- 2. Wrap standalone background apps in UWSM scopes
+    hl.exec_cmd("uwsm app -- hyprpaper")
+    hl.exec_cmd("uwsm app -- nm-applet --indicator")
+    hl.exec_cmd("uwsm app -- blueman-applet")
+    hl.exec_cmd("uwsm app -- gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
 
-    -- Set GTK Theme Properties via GSettings
+    -- 3. Set GTK Theme Properties
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
@@ -225,7 +181,7 @@ hl.config({
             inactive_border = "#2e3440",
         },
         layout           = "dwindle",
-        resize_on_border = true, -- Enables mouse-dragging on inner split borders
+        resize_on_border = true,
         allow_tearing    = false,
     },
 
@@ -248,10 +204,7 @@ hl.config({
     },
 
     animations = { enabled = true },
-
-    dwindle = {
-        preserve_split = true,
-    },
+    dwindle = { preserve_split = true },
 
     misc = {
         force_default_wallpaper = 0,
@@ -262,9 +215,7 @@ hl.config({
         kb_layout    = "us",
         follow_mouse = 1,
         sensitivity  = 0,
-        touchpad     = {
-            natural_scroll = true,
-        },
+        touchpad     = { natural_scroll = true },
     },
 })
 
@@ -280,10 +231,11 @@ local app_binds = {
     { mainMod .. " + Q",         hl.dsp.window.close() },
     { mainMod .. " + P",         hl.dsp.window.pseudo() },
     { mainMod .. " + V",         hl.dsp.layout("togglesplit") },
-    { mainMod .. " + M",         hl.dsp.exit() },
     { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
-    -- { mainMod .. " + L",      hl.dsp.exec_cmd("hyprlock") },
+    
+    -- Graceful session termination via UWSM
+    { mainMod .. " + M",         hl.dsp.exec_cmd("uwsm stop") },
 }
 
 for _, b in ipairs(app_binds) do
@@ -389,35 +341,67 @@ hl.window_rule({
 
 ---
 
-## Phase 6: Hyprlock Configuration (`~/.config/hypr/hyprlock.conf`)
+## Phase 5: Wofi Toggle Script Wrapper
 
-```ini
-background {
-    monitor =
-    path = screenshot
-    blur_passes = 3
-    blur_size = 7
-}
-
-input-field {
-    monitor =
-    size = 250, 50
-    outline_thickness = 3
-    dots_size = 0.33
-    dots_spacing = 0.15
-    fade_on_empty = false
-    placeholder_text = <span foreground="#cad3f5">Input Password...</span>
-}
+1. Create the script:
+```bash
+mkdir -p ~/.config/hypr/scripts
+nvim ~/.config/hypr/scripts/wofi-toggle.sh
 
 ```
 
+
+2. Add logic:
+```bash
+#!/usr/bin/env bash
+if pidof wofi > /dev/null; then
+    killall wofi
+else
+    wofi --show drun
+fi
+
+```
+
+
+3. Make executable:
+```bash
+chmod +x ~/.config/hypr/scripts/wofi-toggle.sh
+
+```
+
+
+
 ---
 
-## Phase 7: Waybar Setup & Styling
+## Phase 6: Waybar Setup & UWSM Power Menu
 
-### 1. Layout Configuration (`~/.config/waybar/config.jsonc`)
+### 1. UWSM Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
 
-Includes the Bluetooth module, collapse-on-empty window module, and notification bell widget module:
+```bash
+#!/usr/bin/env bash
+
+CHOICE=$(printf "Lock\nLogout\nReboot\nShutdown" | wofi --dmenu -p "Power Menu")
+
+case "$CHOICE" in
+    *"Lock")
+        hyprlock
+        ;;
+    *"Logout")
+        uwsm stop
+        ;;
+    *"Reboot")
+        systemctl reboot
+        ;;
+    *"Shutdown")
+        systemctl poweroff
+        ;;
+esac
+
+```
+
+*(Make executable: `chmod +x ~/.config/waybar/scripts/power-menu.sh`)*
+
+### 2. Layout Configuration (`~/.config/waybar/config.jsonc`)
 
 ```jsonc
 {
@@ -550,7 +534,7 @@ Includes the Bluetooth module, collapse-on-empty window module, and notification
 
     "custom/power": {
         "format": "⏻",
-        "on-click": "~/.config/waybar/scripts/power-menu.sh",
+        "on-click": "uwsm app -- ~/.config/waybar/scripts/power-menu.sh",
         "tooltip": false
     },
 
@@ -569,9 +553,7 @@ Includes the Bluetooth module, collapse-on-empty window module, and notification
 
 ```
 
-### 2. Stylesheet (`~/.config/waybar/style.css`)
-
-Includes the empty state CSS selector rule and Bluetooth module styling:
+### 3. Stylesheet (`~/.config/waybar/style.css`)
 
 ```css
 * {
@@ -664,37 +646,11 @@ window#waybar.empty #window {
 
 ```
 
-### 3. Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
-
-```bash
-#!/usr/bin/env bash
-
-CHOICE=$(printf "Lock\nLogout\nReboot\nShutdown" | wofi --dmenu -p "Power Menu")
-
-case "$CHOICE" in
-    *"Lock")
-        hyprlock
-        ;;
-    *"Logout")
-        loginctl terminate-session $XDG_SESSION_ID
-        ;;
-    *"Reboot")
-        systemctl reboot
-        ;;
-    *"Shutdown")
-        systemctl poweroff
-        ;;
-esac
-
-```
-
 ---
 
-## Phase 8: SwayNC Notification Center Configuration & Styling
+## Phase 7: SwayNC Configuration & Nord Styling
 
 ### 1. Configuration (`~/.config/swaync/config.json`)
-
-Configured to hide notification icons completely (`"image-visibility": "never"`):
 
 ```json
 {
@@ -735,9 +691,7 @@ Configured to hide notification icons completely (`"image-visibility": "never"`)
 
 ```
 
-### 2. Nord Stylesheet (`~/.config/swaync/style.css`)
-
-Fully optimized to strip out wrapper gray boxes and list shadows for a seamless text-focused card layout:
+### 2. Stylesheet (`~/.config/swaync/style.css`)
 
 ```css
 /* --- Nord Theme for SwayNC --- */
@@ -749,7 +703,6 @@ Fully optimized to strip out wrapper gray boxes and list shadows for a seamless 
   box-shadow: none;
 }
 
-/* Control Center Panel Background */
 .control-center {
   background: rgba(46, 52, 64, 0.95);
   border: 2px solid #81a1c1;
@@ -759,7 +712,6 @@ Fully optimized to strip out wrapper gray boxes and list shadows for a seamless 
   padding: 12px;
 }
 
-/* Completely strip out row wrappers and inner background artifacts */
 .control-center-list,
 .notification-row,
 .notification-background {
@@ -771,7 +723,6 @@ Fully optimized to strip out wrapper gray boxes and list shadows for a seamless 
   padding: 0px;
 }
 
-/* The actual notification card (Popups and Control Center) */
 .notification {
   background: #3b4252;
   border: 2px solid #81a1c1;
@@ -786,7 +737,6 @@ Fully optimized to strip out wrapper gray boxes and list shadows for a seamless 
   color: #eceff4;
 }
 
-/* Hide App Icons Completely */
 .notification-icon {
   min-width: 0px;
   min-height: 0px;
@@ -794,107 +744,45 @@ Fully optimized to strip out wrapper gray boxes and list shadows for a seamless 
   display: none;
 }
 
-.summary {
-  font-weight: bold;
-  color: #eceff4;
-  font-size: 14px;
-}
+.summary { font-weight: bold; color: #eceff4; font-size: 14px; }
+.body { color: #d8dee9; font-size: 12px; }
+.time { color: #4c566a; font-size: 10px; }
 
-.body {
-  color: #d8dee9;
-  font-size: 12px;
-}
-
-.time {
-  color: #4c566a;
-  font-size: 10px;
-}
-
-/* Close Button */
 .close-button {
   background: #434c5e;
   color: #eceff4;
   border-radius: 6px;
   padding: 2px 6px;
 }
+.close-button:hover { background: #bf616a; color: #2e3440; }
 
-.close-button:hover {
-  background: #bf616a;
-  color: #2e3440;
-}
-
-/* Widget Styles (Title, DND, Clear All) */
-.widget-title {
-  color: #eceff4;
-  margin: 8px;
-  font-size: 16px;
-}
-
+.widget-title { color: #eceff4; margin: 8px; font-size: 16px; }
 .widget-title>button {
-  background: #3b4252;
-  color: #eceff4;
-  border: 1px solid #434c5e;
-  border-radius: 6px;
-  padding: 4px 10px;
+  background: #3b4252; color: #eceff4; border: 1px solid #434c5e; border-radius: 6px; padding: 4px 10px;
 }
+.widget-title>button:hover { background: #81a1c1; color: #2e3440; }
 
-.widget-title>button:hover {
-  background: #81a1c1;
-  color: #2e3440;
-}
+.widget-dnd { background: #3b4252; border-radius: 8px; padding: 8px; margin: 8px 0; color: #eceff4; }
+.widget-dnd switch { background: #434c5e; border-radius: 12px; }
+.widget-dnd switch:checked { background: #81a1c1; }
 
-.widget-dnd {
-  background: #3b4252;
-  border-radius: 8px;
-  padding: 8px;
-  margin: 8px 0;
-  color: #eceff4;
-}
-
-.widget-dnd switch {
-  background: #434c5e;
-  border-radius: 12px;
-}
-
-.widget-dnd switch:checked {
-  background: #81a1c1;
-}
-
-/* Media Player Widget (MPRIS) */
-.widget-mpris {
-  background: #3b4252;
-  border-radius: 10px;
-  padding: 10px;
-  margin-top: 8px;
-  color: #eceff4;
-}
-
-.widget-mpris-player {
-  padding: 8px;
-}
+.widget-mpris { background: #3b4252; border-radius: 10px; padding: 10px; margin-top: 8px; color: #eceff4; }
+.widget-mpris-player { padding: 8px; }
 
 ```
 
 ---
 
-## Phase 9: Browser File Manager Bridge (Thunar)
+## Phase 8: Thunar File Manager DBus Bridge
 
-1. Set the default directory handler:
 ```bash
 xdg-mime default thunar.desktop inode/directory
-
-```
-
-
-2. Create the D-Bus file manager bridge service:
-```bash
 mkdir -p ~/.local/share/dbus-1/services
-nvim ~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service
 
 ```
 
+Create `~/.local/share/dbus-1/services/org.freedesktop.FileManager1.service`:
 
-3. Paste this service definition:
 ```ini
 [D-BUS Service]
 Name=org.freedesktop.FileManager1
@@ -902,8 +790,6 @@ Exec=/usr/bin/thunar --sm-client-disable
 
 ```
 
-
-4. Refresh application cache:
 ```bash
 update-desktop-database ~/.local/share/applications
 
