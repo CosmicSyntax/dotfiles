@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for flawless screen sharing, Native HDR support, Zen Browser integration, a kernel-aware True Clamshell Mode, and a customized Nord-themed interface.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for screen sharing, native HDR support, Zen Browser integration, a kernel-aware True Clamshell Mode, silent PAM keyring unlocking via `greetd`, and a customized Nord-themed interface.
 
 ---
 
@@ -46,7 +46,7 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, and icon themes.
+Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, keyring libraries, and icon themes.
 
 ```bash
 sudo dnf install \
@@ -67,6 +67,9 @@ sudo dnf install \
     network-manager-applet \
     swaync \
     hyprpolkitagent \
+    gnome-keyring \
+    gnome-keyring-pam \
+    seahorse \
     grim \
     slurp \
     wl-clipboard \
@@ -84,18 +87,17 @@ sudo dnf install \
 
 ---
 
-## Phase 3: Greetd & UWSM Configuration (Terminal Login)
+## Phase 3: Greetd & PAM Auto-Unlock Configuration
 
-Configure `greetd` to launch Hyprland securely inside a UWSM systemd scope on Virtual Terminal 1.
+Configure `greetd` to launch Hyprland securely inside a UWSM systemd scope on Virtual Terminal 1 and silently unlock `gnome-keyring`.
 
-1. Open the configuration file:
+### 1. Configure Greetd (`/etc/greetd/config.toml`)
+
 ```bash
 sudo nvim /etc/greetd/config.toml
 
 ```
 
-
-2. Add the following configuration:
 ```toml
 [terminal]
 vt = 1
@@ -106,21 +108,49 @@ user = "greetd"
 
 ```
 
+### 2. Configure PAM for Greetd (`/etc/pam.d/greetd`)
 
-3. Enable the required services:
+Explicitly include `pam_gnome_keyring.so` to bypass service-name restrictions and unlock the login keyring during terminal authentication.
+
+```bash
+sudo nvim /etc/pam.d/greetd
+
+```
+
+```pam
+#%PAM-1.0
+auth       substack     system-auth
+auth       optional     pam_gnome_keyring.so auto_start
+auth       include      postlogin
+
+account    required     pam_nologin.so
+account    include      system-auth
+
+password   include      system-auth
+
+session    required     pam_selinux.so close
+session    required     pam_loginuid.so
+session    required     pam_selinux.so open
+session    optional     pam_keyinit.so force revoke
+session    include      system-auth
+session    optional     pam_gnome_keyring.so auto_start
+session    include      postlogin
+
+```
+
+### 3. Enable System Services
+
 ```bash
 sudo systemctl enable greetd
 sudo systemctl enable --now power-profiles-daemon
 
 ```
 
-
-
 ---
 
 ## Phase 4: Display & Media Scripts
 
-Create the custom background scripts required for the display engine and media capture.
+Create the custom background scripts required for display adjustments and media capture.
 
 ```bash
 mkdir -p ~/.config/hypr/scripts
@@ -152,7 +182,7 @@ fi
 
 sleep 0.5
 
-# 2. Check the physical hardware switch; only re-disable if docked
+# 2. Check physical hardware switch; only re-disable if docked
 if grep -iq closed /proc/acpi/button/lid/*/state 2>/dev/null; then
     if hyprctl monitors | grep -q "DP-1"; then
         hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
@@ -163,7 +193,7 @@ fi
 
 ### 2. Smart Lid Closure (`~/.config/hypr/scripts/lid-close.sh`)
 
-Prevents zero-monitor segfaults by only turning off the screen if the OLED dock is connected.
+Prevents zero-monitor states by disabling the panel only when an external display is active.
 
 ```bash
 #!/usr/bin/env bash
@@ -180,9 +210,16 @@ fi
 ```bash
 #!/usr/bin/env bash
 mkdir -p ~/Pictures/Screenshots
+
+REGION=$(slurp)
+
+if [ -z "$REGION" ]; then
+    exit 0
+fi
+
 FILE=~/Pictures/Screenshots/Capture_$(date +'%Y%m%d_%H%M%S').png
 
-if grim -g "$(slurp)" - | tee "$FILE" | wl-copy; then
+if grim -g "$REGION" - | tee "$FILE" | wl-copy; then
     notify-send "Screenshot Captured" "Saved to Screenshots and copied to clipboard." -i camera-photo
 fi
 
@@ -198,9 +235,29 @@ if pidof wf-recorder > /dev/null; then
     pkill wf-recorder
     notify-send "Recording Stopped" "Video saved to ~/Videos/Recordings" -i media-record
 else
+    notify-send "Screen Recording" "Select an area to begin recording... (Press ESC to cancel)" -i media-record
+    REGION=$(slurp)
+    
+    if [ -z "$REGION" ]; then
+        exit 0
+    fi
+
     FILE=~/Videos/Recordings/Record_$(date +'%Y%m%d_%H%M%S').mp4
-    notify-send "Screen Recording" "Select an area to begin recording..." -i media-record
-    wf-recorder -g "$(slurp)" -f "$FILE" &
+    wf-recorder -g "$REGION" -f "$FILE" &
+    
+    notify-send "Screen Recording" "Recording started! Press SUPER+SHIFT+R to stop." -i media-record
+fi
+
+```
+
+### 5. Wofi Application Toggle (`~/.config/hypr/scripts/wofi-toggle.sh`)
+
+```bash
+#!/usr/bin/env bash
+if pidof wofi > /dev/null; then
+    killall wofi
+else
+    wofi --show drun
 fi
 
 ```
@@ -209,9 +266,7 @@ fi
 
 ---
 
-## Phase 5: UWSM-Optimized Hyprland Configuration (`~/.config/hypr/hyprland.lua`)
-
-This strictly DRY Lua configuration reads kernel states via DRM, manages native HDR, wraps major apps in UWSM scopes, and contains the media capture hooks.
+## Phase 5: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
 ```lua
 --------------------------------------------------------------------------------
@@ -238,14 +293,14 @@ local dp_state = handle_dp:read("*a") or ""
 handle_dp:close()
 
 local is_closed = string.find(string.lower(lid_state), "closed")
-local is_docked = (dp_state ~= "")
 
--- 3. Dynamically configure eDP-1 based on both variables
-if is_closed and is_docked then
-    -- True Clamshell: Lid is shut AND external monitor is present
-    hl.monitor({ output = eDP1_config.output, disabled = true })
+-- 3. Dynamically configure eDP-1 based on Lid State
+if is_closed then
+    hl.monitor({
+        output   = eDP1_config.output,
+        disabled = true,
+    })
 else
-    -- Mobile or Open: Ensure the laptop screen stays on
     hl.monitor(eDP1_config)
 end
 
@@ -266,7 +321,7 @@ local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
 local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
--- Environment Variables
+-- Environment Variables (Critical for Portals & Theming)
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
@@ -276,42 +331,87 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Autostart Daemons & Services
 hl.on("hyprland.start", function()
+    -- 1. Sync authentication and display environments to D-Bus and systemd
+    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+
+    -- 2. Start core daemons via user systemd units
     hl.exec_cmd("systemctl --user start swaync.service")
     hl.exec_cmd("systemctl --user start waybar.service")
     hl.exec_cmd("systemctl --user start hypridle.service")
     hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
 
+    -- 3. Wrap standalone background apps in UWSM scopes
     hl.exec_cmd("uwsm app -- hyprpaper")
     hl.exec_cmd("uwsm app -- nm-applet --indicator")
     hl.exec_cmd("uwsm app -- blueman-applet")
-    hl.exec_cmd("uwsm app -- gnome-keyring-daemon --start --components=secrets,ssh,pkcs11")
-    
     hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
 
+    -- 4. Set GTK Theme Properties
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
 
--- Core System Settings
+-- Core System & Appearance Settings
 hl.config({
-    ecosystem = { no_donation_nag = true, no_update_news = false },
-    general = { gaps_in = 4, gaps_out = 10, border_size = 0, layout = "dwindle", resize_on_border = true, allow_tearing = false },
-    decoration = {
-        rounding = 5,
-        active_opacity = 1.0,
-        inactive_opacity = 0.85,
-        shadow = { enabled = true, range = 12, render_power = 2, color = 0xee1a1e24 },
-        blur = { enabled = true, size = 4, passes = 2, vibrancy = 0.1696 },
+    ecosystem = {
+        no_donation_nag = true,
+        no_update_news  = false,
     },
+
+    general = {
+        gaps_in          = 4,
+        gaps_out         = 10,
+        border_size      = 0,
+        layout           = "dwindle",
+        resize_on_border = true,
+        allow_tearing    = false,
+    },
+
+    decoration = {
+        rounding         = 5,
+        active_opacity   = 1.0,
+        inactive_opacity = 0.90,
+        shadow           = {
+            enabled      = true,
+            range        = 12,
+            render_power = 2,
+            color        = 0xee1a1e24,
+        },
+        blur             = {
+            enabled  = true,
+            size     = 4,
+            passes   = 2,
+            vibrancy = 0.1696,
+        },
+    },
+
     animations = { enabled = true },
-    dwindle = { preserve_split = true },
-    misc = { force_default_wallpaper = 0, disable_hyprland_logo = true, disable_hyprland_guiutils_check = false },
-    input = { kb_layout = "us", follow_mouse = 1, sensitivity = 0, touchpad = { natural_scroll = true } },
+
+    dwindle = {
+        preserve_split = true,
+    },
+
+    misc = {
+        force_default_wallpaper         = 0,
+        disable_hyprland_logo           = true,
+        disable_hyprland_guiutils_check = false,
+    },
+
+    input = {
+        kb_layout    = "us",
+        follow_mouse = 1,
+        sensitivity  = 0,
+        touchpad     = {
+            natural_scroll = true,
+        },
+    },
 })
 
 --------------------------------------------------------------------------------
 -- KEYBINDINGS
 --------------------------------------------------------------------------------
+
 local app_binds = {
     { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
     { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
@@ -323,32 +423,53 @@ local app_binds = {
     { mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
     { mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
     { mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
-    
-    -- Smart Scripts
     { mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh") },
     { mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh") },
     { mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenrecord.sh") },
 }
 
-for _, b in ipairs(app_binds) do hl.bind(b[1], b[2]) end
+for _, b in ipairs(app_binds) do
+    hl.bind(b[1], b[2])
+end
 
--- Focus / Movement / Resize (Omitted loop boilerplate for brevity in display)
+-- Focus Navigation (SUPER + H/J/K/L)
 local focus_binds = {
     { mainMod .. " + H", hl.dsp.focus({ direction = "left" }) },
     { mainMod .. " + L", hl.dsp.focus({ direction = "right" }) },
     { mainMod .. " + K", hl.dsp.focus({ direction = "up" }) },
     { mainMod .. " + J", hl.dsp.focus({ direction = "down" }) },
 }
-for _, b in ipairs(focus_binds) do hl.bind(b[1], b[2]) end
 
+for _, b in ipairs(focus_binds) do
+    hl.bind(b[1], b[2])
+end
+
+-- Tile Movement (SUPER + SHIFT + H/J/K/L)
 local move_binds = {
     { mainMod .. " + SHIFT + H", hl.dsp.window.move({ direction = "left" }) },
     { mainMod .. " + SHIFT + L", hl.dsp.window.move({ direction = "right" }) },
     { mainMod .. " + SHIFT + K", hl.dsp.window.move({ direction = "up" }) },
     { mainMod .. " + SHIFT + J", hl.dsp.window.move({ direction = "down" }) },
 }
-for _, b in ipairs(move_binds) do hl.bind(b[1], b[2]) end
 
+for _, b in ipairs(move_binds) do
+    hl.bind(b[1], b[2])
+end
+
+-- Floating Window Movement (SUPER + ALT + Arrow Keys)
+local floatStep = 50
+local float_move_binds = {
+    { mainMod .. " + ALT + right", hl.dsp.window.move({ x = floatStep, y = 0, relative = true }) },
+    { mainMod .. " + ALT + left",  hl.dsp.window.move({ x = -floatStep, y = 0, relative = true }) },
+    { mainMod .. " + ALT + up",    hl.dsp.window.move({ x = 0, y = -floatStep, relative = true }) },
+    { mainMod .. " + ALT + down",  hl.dsp.window.move({ x = 0, y = floatStep, relative = true }) },
+}
+
+for _, b in ipairs(float_move_binds) do
+    hl.bind(b[1], b[2], { repeating = true })
+end
+
+-- Window Resizing (SUPER + SHIFT + Arrow Keys)
 local resizeUnit = 100
 local resize_binds = {
     { mainMod .. " + SHIFT + right", hl.dsp.window.resize({ x = resizeUnit, y = 0, relative = true }) },
@@ -356,28 +477,32 @@ local resize_binds = {
     { mainMod .. " + SHIFT + up",    hl.dsp.window.resize({ x = 0, y = -resizeUnit, relative = true }) },
     { mainMod .. " + SHIFT + down",  hl.dsp.window.resize({ x = 0, y = resizeUnit, relative = true }) },
 }
-for _, b in ipairs(resize_binds) do hl.bind(b[1], b[2]) end
 
--- Workspaces 1-10
+for _, b in ipairs(resize_binds) do
+    hl.bind(b[1], b[2])
+end
+
+-- Workspaces 1-10 Navigation & Movement
 for i = 1, 10 do
     local key = i % 10
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
 
--- Scratchpad (Magic Workspace)
+-- Magic Scratchpad
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Smart Clamshell Mode
+-- Hardware Clamshell Listener
 local wake_eDP1_cmd = string.format(
     [[hyprctl eval 'hl.monitor({output="%s", mode="%s", position="%s", scale="%s", bitdepth=%d, cm="%s", disabled=false})']],
     eDP1_config.output, eDP1_config.mode, eDP1_config.position, eDP1_config.scale, eDP1_config.bitdepth, eDP1_config.cm
 )
+
 hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("~/.config/hypr/scripts/lid-close.sh"), { locked = true })
 hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(wake_eDP1_cmd), { locked = true })
 
--- Media Keys
+-- Media, Audio & Hardware Brightness Keys
 local media_keys = {
     { "XF86AudioRaiseVolume",  "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
     { "XF86AudioLowerVolume",  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
@@ -390,112 +515,49 @@ local media_keys = {
     { "XF86AudioPlay",         "playerctl play-pause" },
     { "XF86AudioPause",        "playerctl play-pause" },
 }
+
 for _, k in ipairs(media_keys) do
     hl.bind(k[1], hl.dsp.exec_cmd(k[2]), { locked = true, repeating = true })
 end
 
--- Window Rules
-hl.window_rule({ name = "suppress-maximize-events", match = { class = ".*" }, suppress_event = "maximize" })
-hl.window_rule({ name = "fix-xwayland-drags", match = { class = "^$", title = "^$", xwayland = true, float = true }, no_focus = true })
-hl.window_rule({ name = "smart-borders-solo", match = { workspace = "w[t1]", float = false }, border_size = 0 })
-hl.window_rule({ name = "float-utilities", match = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" }, float = true, center = true })
+--------------------------------------------------------------------------------
+-- WINDOW RULES
+--------------------------------------------------------------------------------
+
+hl.window_rule({
+    name           = "suppress-maximize-events",
+    match          = { class = ".*" },
+    suppress_event = "maximize",
+})
+
+hl.window_rule({
+    name     = "fix-xwayland-drags",
+    match    = { class = "^$", title = "^$", xwayland = true, float = true },
+    no_focus = true,
+})
+
+hl.window_rule({
+    name        = "smart-borders-solo",
+    match       = { workspace = "w[t1]", float = false },
+    border_size = 0,
+})
+
+hl.window_rule({
+    name   = "float-utilities",
+    match  = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" },
+    float  = true,
+    center = true,
+})
 
 ```
 
 ---
 
-## Phase 6: Native UI Theming (hyprtoolkit)
+## Phase 6: Waybar Multi-Output Configuration
 
-Theme the `hyprland-guiutils` notifications (crash reports, updates) to match the Nord palette.
+Waybar uses a multi-output configuration that excludes the backlight widget on external displays while retaining it on `eDP-1`.
 
-```ini
-# ~/.config/hypr/hyprtoolkit.conf
-
-# Nord Color Palette
-background = 0xFF2E3440        
-base = 0xFF3B4252              
-alternate_base = 0xFF434C5E    
-text = 0xFFD8DEE9              
-bright_text = 0xFFECEFF4       
-accent = 0xFF81A1C1            
-accent_secondary = 0xFF88C0D0  
-
-# Fonts & Corners
-font_family = GoogleSansMNerdFont-Regular
-font_size = 13
-h1_size = 19
-h2_size = 15
-h3_size = 13
-icon_theme = Papirus-Dark
-
-rounding_large = 10
-rounding_small = 5             
-
-```
-
----
-
-## Phase 7: Wofi Toggle Script Wrapper
-
-1. Create the script:
-```bash
-nvim ~/.config/hypr/scripts/wofi-toggle.sh
-
-```
-
-
-2. Add logic:
-```bash
-#!/usr/bin/env bash
-if pidof wofi > /dev/null; then
-    killall wofi
-else
-    wofi --show drun
-fi
-
-```
-
-
-
-*(Ensure executable: `chmod +x ~/.config/hypr/scripts/wofi-toggle.sh`)*
-
----
-
-## Phase 8: Waybar Setup & UWSM Power Menu
-
-### 1. UWSM Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
-
-```bash
-#!/usr/bin/env bash
-
-# Power menu options
-options="󰌾  Lock\n󰒲  Sleep\n󰍃  Logout\n󰑐  Reboot\n󰐥  Shutdown"
-# Pass options to Wofi
-chosen=$(echo -e "$options" | wofi --dmenu --prompt "Power" --width 200 --lines 5 --cache-file /dev/null)
-
-case "$chosen" in
-    *"Lock")
-        hyprlock
-        ;;
-    *"Sleep")
-        systemctl suspend
-        ;;
-    *"Logout")
-        uwsm stop
-        ;;
-    *"Reboot")
-        systemctl reboot
-        ;;
-    *"Shutdown")
-        systemctl poweroff
-        ;;
-esac
-
-```
-
-*(Ensure executable: `chmod +x ~/.config/waybar/scripts/power-menu.sh`)*
-
-### 2. Layout Configuration (`~/.config/waybar/config.jsonc`)
+### 1. Shared Modules Definition (`~/.config/waybar/modules.jsonc`)
 
 ```jsonc
 {
@@ -506,39 +568,11 @@ esac
     "exclusive": true,
     "gtk-layer-shell": true,
 
-    "modules-left": [
-        "hyprland/workspaces"
-    ],
-    "modules-center": [
-        "hyprland/window"
-    ],
-    "modules-right": [
-        "power-profiles-daemon",
-        "pulseaudio",
-        "network",
-        "bluetooth",
-        "backlight",
-        "battery",
-        "clock",
-        "custom/notification",
-        "custom/power"
-    ],
-
     "hyprland/workspaces": {
-        "format": "{icon}",
+        "format": "{name}",
         "on-click": "activate",
-        "format-icons": {
-            "1": "1",
-            "2": "2",
-            "3": "3",
-            "4": "4",
-            "5": "5",
-            "urgent": "",
-            "active": "",
-            "default": ""
-        },
         "persistent-workspaces": {
-            "*": 5
+            "*": [1, 2, 3, 4, 5]
         }
     },
 
@@ -547,6 +581,18 @@ esac
         "format-empty": "",
         "max-length": 50,
         "separate-outputs": true
+    },
+
+    "power-profiles-daemon": {
+        "format": "{icon}",
+        "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
+        "tooltip": true,
+        "format-icons": {
+            "default": "",
+            "performance": "",
+            "balanced": "",
+            "power-saver": ""
+        }
     },
 
     "clock": {
@@ -635,7 +681,48 @@ esac
 
 ```
 
-### 3. Stylesheet (`~/.config/waybar/style.css`)
+### 2. Multi-Bar Root Config (`~/.config/waybar/config.jsonc`)
+
+```jsonc
+[
+    {
+        "output": ["eDP-1"],
+        "include": ["~/.config/waybar/modules.jsonc"],
+        "modules-left": ["hyprland/workspaces"],
+        "modules-center": ["hyprland/window"],
+        "modules-right": [
+            "power-profiles-daemon",
+            "pulseaudio",
+            "network",
+            "bluetooth",
+            "backlight",
+            "battery",
+            "clock",
+            "custom/notification",
+            "custom/power"
+        ]
+    },
+    {
+        "output": ["DP-1", "DP-2", "DP-3", "HDMI-A-1"],
+        "include": ["~/.config/waybar/modules.jsonc"],
+        "modules-left": ["hyprland/workspaces"],
+        "modules-center": ["hyprland/window"],
+        "modules-right": [
+            "power-profiles-daemon",
+            "pulseaudio",
+            "network",
+            "bluetooth",
+            "battery",
+            "clock",
+            "custom/notification",
+            "custom/power"
+        ]
+    }
+]
+
+```
+
+### 3. Waybar Stylesheet (`~/.config/waybar/style.css`)
 
 ```css
 * {
@@ -713,11 +800,64 @@ window#waybar.empty #window {
 
 ```
 
+### 4. Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
+
+```bash
+#!/usr/bin/env bash
+
+options="󰌾  Lock\n󰒲  Sleep\n󰍃  Logout\n󰑐  Reboot\n󰐥  Shutdown"
+chosen=$(echo -e "$options" | wofi --dmenu --prompt "Power" --width 200 --lines 5 --cache-file /dev/null)
+
+case "$chosen" in
+    *"Lock")
+        hyprlock
+        ;;
+    *"Sleep")
+        systemctl suspend
+        ;;
+    *"Logout")
+        uwsm stop
+        ;;
+    *"Reboot")
+        systemctl reboot
+        ;;
+    *"Shutdown")
+        systemctl poweroff
+        ;;
+esac
+
+```
+
+*(Ensure executable: `chmod +x ~/.config/waybar/scripts/power-menu.sh`)*
+
 ---
 
-## Phase 9: SwayNC Configuration & Nord Styling
+## Phase 7: SwayNC & Native UI Theming
 
-### 1. Configuration (`~/.config/swaync/config.json`)
+### 1. Hyprtoolkit Config (`~/.config/hypr/hyprtoolkit.conf`)
+
+```ini
+background = 0xFF2E3440        
+base = 0xFF3B4252              
+alternate_base = 0xFF434C5E    
+text = 0xFFD8DEE9              
+bright_text = 0xFFECEFF4       
+accent = 0xFF81A1C1            
+accent_secondary = 0xFF88C0D0  
+
+font_family = GoogleSansMNerdFont-Regular
+font_size = 13
+h1_size = 19
+h2_size = 15
+h3_size = 13
+icon_theme = Papirus-Dark
+
+rounding_large = 10
+rounding_small = 5             
+
+```
+
+### 2. SwayNC Config (`~/.config/swaync/config.json`)
 
 ```json
 {
@@ -749,12 +889,10 @@ window#waybar.empty #window {
 
 ```
 
-### 2. Stylesheet (`~/.config/swaync/style.css`)
+### 3. SwayNC Stylesheet (`~/.config/swaync/style.css`)
 
 ```css
-/* --- Nord Theme for SwayNC --- */
 * { font-family: "GoogleSansMNerdFont-Regular", sans-serif; font-size: 13px; background: transparent; box-shadow: none; }
-
 .control-center { background: rgba(46, 52, 64, 0.95); border: 2px solid #81a1c1; border-radius: 12px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); color: #eceff4; padding: 12px; }
 .control-center-list, .notification-row, .notification-background { background: transparent; box-shadow: none; border: none; margin: 4px 0; padding: 0px; }
 .notification { background: #3b4252; border: 2px solid #81a1c1; border-radius: 10px; padding: 8px; color: #eceff4; }
@@ -778,7 +916,7 @@ window#waybar.empty #window {
 
 ---
 
-## Phase 10: Thunar File Manager DBus Bridge
+## Phase 8: Thunar File Manager D-Bus Integration
 
 ```bash
 xdg-mime default thunar.desktop inode/directory
