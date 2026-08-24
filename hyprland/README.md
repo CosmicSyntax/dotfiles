@@ -150,7 +150,7 @@ sudo systemctl enable --now power-profiles-daemon
 
 ## Phase 4: Display & Media Scripts
 
-Create the custom background scripts required for display adjustments and media capture.
+Create the custom background scripts required for display adjustments and media capture. These scripts are context-aware to prevent Wayland surface crashes during suspend/resume cycles.
 
 ```bash
 mkdir -p ~/.config/hypr/scripts
@@ -159,7 +159,7 @@ mkdir -p ~/.config/hypr/scripts
 
 ### 1. Dynamic Night Light (`~/.config/hypr/scripts/dynamic-nightlight.sh`)
 
-Fetches coordinates via IP, applies a warm gamma filter, and safely manages the laptop screen state.
+Fetches coordinates via IP, applies a warm gamma filter, and safely manages the laptop screen state if closed.
 
 ```bash
 #!/usr/bin/env bash
@@ -182,30 +182,51 @@ fi
 
 sleep 0.5
 
-# 2. Check physical hardware switch; only re-disable if docked
+# 2. Check physical hardware switch; safely re-disable if docked
 if grep -iq closed /proc/acpi/button/lid/*/state 2>/dev/null; then
-    if hyprctl monitors | grep -q "DP-1"; then
+    if [ "$(hyprctl monitors | grep -c "^Monitor")" -gt 1 ]; then
+        if pidof hyprlock > /dev/null; then
+            hyprctl dispatch dpms off eDP-1
+        else
+            hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
+        fi
+    fi
+fi
+
+```
+
+### 2. Context-Aware Lid Close (`~/.config/hypr/scripts/lid-close.sh`)
+
+Prevents rendering crashes by soft-disabling the screen (cutting DPMS power) if the lockscreen is active, or hard-disabling if unlocked.
+
+```bash
+#!/usr/bin/env bash
+if [ "$(hyprctl monitors | grep -c "^Monitor")" -gt 1 ]; then
+    if pidof hyprlock > /dev/null; then
+        # Soft-disable: Cut power, preserve Wayland surface
+        hyprctl dispatch dpms off eDP-1
+    else
+        # Hard-disable: Destroy output, migrate workspaces
         hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
     fi
 fi
 
 ```
 
-### 2. Smart Lid Closure (`~/.config/hypr/scripts/lid-close.sh`)
+### 3. Context-Aware Lid Open (`~/.config/hypr/scripts/lid-open.sh`)
 
-Prevents zero-monitor states by disabling the panel only when an external display is active.
+Restores the `eDP-1` display pipeline only if missing, and forces the backlight on to prevent black-screen resume hangs.
 
 ```bash
 #!/usr/bin/env bash
-if hyprctl monitors | grep -q "DP-1"; then
-    hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
-else
-    exit 0
+if ! hyprctl monitors | grep -q "Monitor eDP-1"; then
+    hyprctl eval 'hl.monitor({output="eDP-1", mode="2560x1600@60", position="0x1440", scale="1.0", bitdepth=10, cm="auto", disabled=false})'
 fi
+hyprctl dispatch dpms on
 
 ```
 
-### 3. Screenshot Capture (`~/.config/hypr/scripts/screenshot.sh`)
+### 4. Screenshot Capture (`~/.config/hypr/scripts/screenshot.sh`)
 
 ```bash
 #!/usr/bin/env bash
@@ -225,7 +246,7 @@ fi
 
 ```
 
-### 4. Screen Recording (`~/.config/hypr/scripts/screenrecord.sh`)
+### 5. Screen Recording (`~/.config/hypr/scripts/screenrecord.sh`)
 
 ```bash
 #!/usr/bin/env bash
@@ -250,7 +271,7 @@ fi
 
 ```
 
-### 5. Wofi Application Toggle (`~/.config/hypr/scripts/wofi-toggle.sh`)
+### 6. Wofi Application Toggle (`~/.config/hypr/scripts/wofi-toggle.sh`)
 
 ```bash
 #!/usr/bin/env bash
@@ -493,14 +514,9 @@ end
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Hardware Clamshell Listener
-local wake_eDP1_cmd = string.format(
-    [[hyprctl eval 'hl.monitor({output="%s", mode="%s", position="%s", scale="%s", bitdepth=%d, cm="%s", disabled=false})']],
-    eDP1_config.output, eDP1_config.mode, eDP1_config.position, eDP1_config.scale, eDP1_config.bitdepth, eDP1_config.cm
-)
-
+-- Safe Hardware Clamshell Listeners
 hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("~/.config/hypr/scripts/lid-close.sh"), { locked = true })
-hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(wake_eDP1_cmd), { locked = true })
+hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd("~/.config/hypr/scripts/lid-open.sh"), { locked = true })
 
 -- Media, Audio & Hardware Brightness Keys
 local media_keys = {
@@ -553,7 +569,40 @@ hl.window_rule({
 
 ---
 
-## Phase 6: Waybar Multi-Output Configuration
+## Phase 6: Session & Idle Management
+
+Coordinate sleep events with `systemd` to guarantee the screen locks before the kernel cuts power, and wakes up cleanly upon resume without tearing down display pipelines.
+
+### 1. Idle Daemon Config (`~/.config/hypr/hypridle.conf`)
+
+```ini
+general {
+    lock_cmd = pidof hyprlock || hyprlock
+    before_sleep_cmd = loginctl lock-session
+    after_sleep_cmd = hyprctl dispatch dpms on
+}
+
+```
+
+### 2. Lockscreen Config (`~/.config/hypr/hyprlock.conf`)
+
+Ensure `immediate_render` is NOT used, as it races with the DRM driver wake sequence and causes permanent black screens.
+
+```ini
+general {
+    disable_loading_bar = true
+    hide_cursor = true
+    grace = 0
+    no_fade_in = false
+}
+
+# (Followed by your standard background, input-field, and label definitions...)
+
+```
+
+---
+
+## Phase 7: Waybar Multi-Output Configuration
 
 Waybar uses a multi-output configuration that excludes the backlight widget on external displays while retaining it on `eDP-1`.
 
@@ -832,7 +881,7 @@ esac
 
 ---
 
-## Phase 7: SwayNC & Native UI Theming
+## Phase 8: SwayNC & Native UI Theming
 
 ### 1. Hyprtoolkit Config (`~/.config/hypr/hyprtoolkit.conf`)
 
@@ -916,7 +965,7 @@ rounding_small = 5
 
 ---
 
-## Phase 8: Thunar File Manager D-Bus Integration
+## Phase 9: Thunar File Manager D-Bus Integration
 
 ```bash
 xdg-mime default thunar.desktop inode/directory
