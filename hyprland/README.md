@@ -352,25 +352,28 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Autostart Daemons & Services
 hl.on("hyprland.start", function()
-    -- 1. Sync authentication and display environments to D-Bus and systemd
-    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
-    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+	-- 0. Force the keyring daemon to wake up and accept the PAM handoff immediately
+    hl.exec_cmd("gnome-keyring-daemon --start --components=pkcs11,secrets,ssh")
 
-    -- 2. Start core daemons via user systemd units
-    hl.exec_cmd("systemctl --user start swaync.service")
-    hl.exec_cmd("systemctl --user start waybar.service")
-    hl.exec_cmd("systemctl --user start hypridle.service")
-    hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
+	-- 1. Sync authentication and display environments to D-Bus and systemd
+	hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+	hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
 
-    -- 3. Wrap standalone background apps in UWSM scopes
-    hl.exec_cmd("uwsm app -- hyprpaper")
-    hl.exec_cmd("uwsm app -- nm-applet --indicator")
-    hl.exec_cmd("uwsm app -- blueman-applet")
-    hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
+	-- 2. Start core daemons
+	hl.exec_cmd("systemctl --user start swaync.service")
+	hl.exec_cmd("systemctl --user start waybar.service")
+	hl.exec_cmd("systemctl --user start hypridle.service")
+	hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
 
-    -- 4. Set GTK Theme Properties
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
-    hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
+	-- 3. Background apps
+	hl.exec_cmd("uwsm app -- hyprpaper")
+	hl.exec_cmd("uwsm app -- nm-applet --indicator")
+	hl.exec_cmd("uwsm app -- blueman-applet")
+	hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
+
+	-- 4. GTK Theme Properties
+	hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
+	hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
 
 -- Core System & Appearance Settings
