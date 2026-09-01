@@ -1,0 +1,11 @@
+# ~/.config/walker/config.toml
+
+theme = "nord"
+close_when_open = true
+force_keyboard_focus = true
+
+[builtins.applications]
+weight = 100
+
+[builtins.runner]
+weight = 90

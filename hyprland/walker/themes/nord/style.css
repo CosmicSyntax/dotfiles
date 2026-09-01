@@ -1,0 +1,124 @@
+/* ~/.config/walker/themes/nord/style.css */
+
+@define-color window_bg_color #2e3440;
+@define-color accent_bg_color #81a1c1;
+@define-color theme_fg_color #eceff4;
+@define-color error_bg_color #bf616a;
+@define-color error_fg_color #eceff4;
+
+* {
+  all: unset;
+}
+
+popover {
+  background: #3b4252;
+  border: 1px solid @accent_bg_color;
+  border-radius: 18px;
+  padding: 10px;
+}
+
+.normal-icons {
+  -gtk-icon-size: 16px;
+}
+
+.large-icons {
+  -gtk-icon-size: 32px;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.box-wrapper {
+  box-shadow:
+    0 19px 38px rgba(0, 0, 0, 0.4),
+    0 15px 12px rgba(0, 0, 0, 0.3);
+  background: @window_bg_color;
+  padding: 20px;
+  border-radius: 20px;
+  border: 2px solid @accent_bg_color;
+}
+
+.preview-box,
+.elephant-hint,
+.placeholder {
+  color: @theme_fg_color;
+}
+
+.search-container {
+  border-radius: 10px;
+}
+
+.input placeholder {
+  opacity: 0.5;
+  color: #4c566a;
+}
+
+.input selection {
+  background: #434c5e;
+}
+
+.input {
+  caret-color: @theme_fg_color;
+  background: #3b4252;
+  padding: 12px;
+  color: @theme_fg_color;
+  border-radius: 8px;
+  border: 1px solid #434c5e;
+  font-family: "GoogleSansM Nerd Font", sans-serif;
+  font-size: 16px;
+}
+
+.input:focus,
+.input:active {
+  border: 1px solid @accent_bg_color;
+  background: #434c5e;
+}
+
+.list {
+  color: @theme_fg_color;
+  font-family: "GoogleSansM Nerd Font", sans-serif;
+}
+
+.item-box {
+  border-radius: 10px;
+  padding: 10px;
+  font-family: "GoogleSansM Nerd Font", sans-serif;
+}
+
+child:selected .item-box,
+row:selected .item-box {
+  background: alpha(@accent_bg_color, 0.3);
+  border-radius: 10px;
+}
+
+.item-text {
+  color: @theme_fg_color;
+  font-weight: bold;
+}
+
+.item-subtext {
+  font-size: 12px;
+  opacity: 0.8;
+  color: #d8dee9;
+}
+
+.keybinds {
+  padding-top: 10px;
+  border-top: 1px solid #3b4252;
+  font-size: 12px;
+  color: #4c566a;
+}
+
+.keybind-label {
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid #4c566a;
+  color: @theme_fg_color;
+}
+
+.error {
+  padding: 10px;
+  background: @error_bg_color;
+  color: @error_fg_color;
+}
