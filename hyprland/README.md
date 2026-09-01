@@ -2,7 +2,7 @@
 
 # Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for screen sharing, native HDR support, Zen Browser integration, a kernel-aware True Clamshell Mode, silent PAM keyring unlocking via `greetd`, and a customized Nord-themed interface.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for screen sharing, native HDR support, a kernel-aware True Clamshell Mode, silent PAM keyring unlocking via `greetd`, and a unified, animated Nord-themed interface powered natively by **Quickshell**.
 
 ---
 
@@ -46,7 +46,7 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, keyring libraries, and icon themes.
+Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, keyring libraries, and icon themes. *(Note: Quickshell should be installed via its respective repository/COPR or built from source).*
 
 ```bash
 sudo dnf install \
@@ -54,7 +54,7 @@ sudo dnf install \
     uwsm \
     greetd \
     agreety \
-    waybar \
+    quickshell \
     hyprpaper \
     hypridle \
     hyprlock \
@@ -65,7 +65,6 @@ sudo dnf install \
     blueman \
     NetworkManager-tui \
     network-manager-applet \
-    swaync \
     hyprpolkitagent \
     gnome-keyring \
     gnome-keyring-pam \
@@ -93,11 +92,6 @@ Configure `greetd` to launch Hyprland securely inside a UWSM systemd scope on Vi
 
 ### 1. Configure Greetd (`/etc/greetd/config.toml`)
 
-```bash
-sudo nvim /etc/greetd/config.toml
-
-```
-
 ```toml
 [terminal]
 vt = 1
@@ -111,11 +105,6 @@ user = "greetd"
 ### 2. Configure PAM for Greetd (`/etc/pam.d/greetd`)
 
 Explicitly include `pam_gnome_keyring.so` to bypass service-name restrictions and unlock the login keyring during terminal authentication.
-
-```bash
-sudo nvim /etc/pam.d/greetd
-
-```
 
 ```pam
 #%PAM-1.0
@@ -163,8 +152,6 @@ Fetches coordinates via IP, applies a warm gamma filter, and safely manages the 
 
 ```bash
 #!/usr/bin/env bash
-
-# 1. Toggle Logic
 if pidof wlsunset > /dev/null; then
     pkill wlsunset
 else
@@ -182,7 +169,6 @@ fi
 
 sleep 0.5
 
-# 2. Check physical hardware switch; safely re-disable if docked
 if grep -iq closed /proc/acpi/button/lid/*/state 2>/dev/null; then
     if [ "$(hyprctl monitors | grep -c "^Monitor")" -gt 1 ]; then
         if pidof hyprlock > /dev/null; then
@@ -197,16 +183,12 @@ fi
 
 ### 2. Context-Aware Lid Close (`~/.config/hypr/scripts/lid-close.sh`)
 
-Prevents rendering crashes by soft-disabling the screen (cutting DPMS power) if the lockscreen is active, or hard-disabling if unlocked.
-
 ```bash
 #!/usr/bin/env bash
 if [ "$(hyprctl monitors | grep -c "^Monitor")" -gt 1 ]; then
     if pidof hyprlock > /dev/null; then
-        # Soft-disable: Cut power, preserve Wayland surface
         hyprctl dispatch dpms off eDP-1
     else
-        # Hard-disable: Destroy output, migrate workspaces
         hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
     fi
 fi
@@ -214,8 +196,6 @@ fi
 ```
 
 ### 3. Context-Aware Lid Open (`~/.config/hypr/scripts/lid-open.sh`)
-
-Restores the `eDP-1` display pipeline only if missing, and forces the backlight on to prevent black-screen resume hangs.
 
 ```bash
 #!/usr/bin/env bash
@@ -231,47 +211,16 @@ hyprctl dispatch dpms on
 ```bash
 #!/usr/bin/env bash
 mkdir -p ~/Pictures/Screenshots
-
 REGION=$(slurp)
-
-if [ -z "$REGION" ]; then
-    exit 0
-fi
-
+if [ -z "$REGION" ]; then exit 0; fi
 FILE=~/Pictures/Screenshots/Capture_$(date +'%Y%m%d_%H%M%S').png
-
 if grim -g "$REGION" - | tee "$FILE" | wl-copy; then
     notify-send "Screenshot Captured" "Saved to Screenshots and copied to clipboard." -i camera-photo
 fi
 
 ```
 
-### 5. Screen Recording (`~/.config/hypr/scripts/screenrecord.sh`)
-
-```bash
-#!/usr/bin/env bash
-mkdir -p ~/Videos/Recordings
-
-if pidof wf-recorder > /dev/null; then
-    pkill wf-recorder
-    notify-send "Recording Stopped" "Video saved to ~/Videos/Recordings" -i media-record
-else
-    notify-send "Screen Recording" "Select an area to begin recording... (Press ESC to cancel)" -i media-record
-    REGION=$(slurp)
-    
-    if [ -z "$REGION" ]; then
-        exit 0
-    fi
-
-    FILE=~/Videos/Recordings/Record_$(date +'%Y%m%d_%H%M%S').mp4
-    wf-recorder -g "$REGION" -f "$FILE" &
-    
-    notify-send "Screen Recording" "Recording started! Press SUPER+SHIFT+R to stop." -i media-record
-fi
-
-```
-
-### 6. Wofi Application Toggle (`~/.config/hypr/scripts/wofi-toggle.sh`)
+### 5. Wofi Application Toggle (`~/.config/hypr/scripts/wofi-toggle.sh`)
 
 ```bash
 #!/usr/bin/env bash
@@ -309,23 +258,16 @@ local handle_lid = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
 local lid_state = handle_lid:read("*a") or ""
 handle_lid:close()
 
-local handle_dp = io.popen("cat /sys/class/drm/card*-DP-*/status 2>/dev/null | grep -w 'connected'")
-local dp_state = handle_dp:read("*a") or ""
-handle_dp:close()
-
 local is_closed = string.find(string.lower(lid_state), "closed")
 
 -- 3. Dynamically configure eDP-1 based on Lid State
 if is_closed then
-    hl.monitor({
-        output   = eDP1_config.output,
-        disabled = true,
-    })
+    hl.monitor({ output = eDP1_config.output, disabled = true })
 else
     hl.monitor(eDP1_config)
 end
 
--- External Samsung OLED (Always On)
+-- External Display (Always On)
 hl.monitor({
     output   = "DP-1",
     mode     = "highres@highrr",
@@ -352,90 +294,46 @@ hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Autostart Daemons & Services
 hl.on("hyprland.start", function()
-	-- 0. Force the keyring daemon to wake up and accept the PAM handoff immediately
     hl.exec_cmd("gnome-keyring-daemon --start --components=pkcs11,secrets,ssh")
+    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+    
+    hl.exec_cmd("systemctl --user start hypridle.service")
+    hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
+    hl.exec_cmd("uwsm app -- quickshell")
 
-	-- 1. Sync authentication and display environments to D-Bus and systemd
-	hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
-	hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
+    hl.exec_cmd("uwsm app -- hyprpaper")
+    hl.exec_cmd("uwsm app -- nm-applet --indicator")
+    hl.exec_cmd("uwsm app -- blueman-applet")
+    hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
 
-	-- 2. Start core daemons
-	hl.exec_cmd("systemctl --user start swaync.service")
-	hl.exec_cmd("systemctl --user start waybar.service")
-	hl.exec_cmd("systemctl --user start hypridle.service")
-	hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
-
-	-- 3. Background apps
-	hl.exec_cmd("uwsm app -- hyprpaper")
-	hl.exec_cmd("uwsm app -- nm-applet --indicator")
-	hl.exec_cmd("uwsm app -- blueman-applet")
-	hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
-
-	-- 4. GTK Theme Properties
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
+    hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
 
 -- Core System & Appearance Settings
 hl.config({
-    ecosystem = {
-        no_donation_nag = true,
-        no_update_news  = false,
-    },
-
-    general = {
-        gaps_in          = 4,
-        gaps_out         = 10,
-        border_size      = 0,
-        layout           = "dwindle",
-        resize_on_border = true,
-        allow_tearing    = false,
-    },
-
+    ecosystem = { no_donation_nag = true, no_update_news = false },
+    general = { gaps_in = 4, gaps_out = 10, border_size = 0, layout = "dwindle", resize_on_border = true, allow_tearing = false },
     decoration = {
-        rounding         = 5,
-        active_opacity   = 1.0,
-        inactive_opacity = 0.90,
-        shadow           = {
-            enabled      = true,
-            range        = 12,
-            render_power = 2,
-            color        = 0xee1a1e24,
-        },
-        blur             = {
-            enabled  = true,
-            size     = 4,
-            passes   = 2,
-            vibrancy = 0.1696,
-        },
+        rounding = 5, active_opacity = 1.0, inactive_opacity = 0.90,
+        shadow = { enabled = true, range = 12, render_power = 2, color = 0xee1a1e24 },
+        blur = { enabled = true, size = 4, passes = 2, vibrancy = 0.1696 },
     },
-
     animations = { enabled = true },
-
-    dwindle = {
-        preserve_split = true,
-    },
-
+    dwindle = { preserve_split = true },
     misc = {
-        force_default_wallpaper         = 0,
-        disable_hyprland_logo           = true,
+        force_default_wallpaper = 0,
+        disable_hyprland_logo = true,
         disable_hyprland_guiutils_check = false,
+        focus_on_activate = true, -- CRITICAL for D-Bus notification focus
     },
-
-    input = {
-        kb_layout    = "us",
-        follow_mouse = 1,
-        sensitivity  = 0,
-        touchpad     = {
-            natural_scroll = true,
-        },
-    },
+    input = { kb_layout = "us", follow_mouse = 1, sensitivity = 0, touchpad = { natural_scroll = true } },
 })
 
 --------------------------------------------------------------------------------
 -- KEYBINDINGS
 --------------------------------------------------------------------------------
-
 local app_binds = {
     { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
     { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
@@ -449,62 +347,25 @@ local app_binds = {
     { mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
     { mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh") },
     { mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh") },
-    { mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenrecord.sh") },
 }
 
-for _, b in ipairs(app_binds) do
-    hl.bind(b[1], b[2])
-end
+for _, b in ipairs(app_binds) do hl.bind(b[1], b[2]) end
 
--- Focus Navigation (SUPER + H/J/K/L)
 local focus_binds = {
     { mainMod .. " + H", hl.dsp.focus({ direction = "left" }) },
     { mainMod .. " + L", hl.dsp.focus({ direction = "right" }) },
     { mainMod .. " + K", hl.dsp.focus({ direction = "up" }) },
     { mainMod .. " + J", hl.dsp.focus({ direction = "down" }) },
 }
+for _, b in ipairs(focus_binds) do hl.bind(b[1], b[2]) end
 
-for _, b in ipairs(focus_binds) do
-    hl.bind(b[1], b[2])
-end
-
--- Tile Movement (SUPER + SHIFT + H/J/K/L)
 local move_binds = {
     { mainMod .. " + SHIFT + H", hl.dsp.window.move({ direction = "left" }) },
     { mainMod .. " + SHIFT + L", hl.dsp.window.move({ direction = "right" }) },
     { mainMod .. " + SHIFT + K", hl.dsp.window.move({ direction = "up" }) },
     { mainMod .. " + SHIFT + J", hl.dsp.window.move({ direction = "down" }) },
 }
-
-for _, b in ipairs(move_binds) do
-    hl.bind(b[1], b[2])
-end
-
--- Floating Window Movement (SUPER + ALT + Arrow Keys)
-local floatStep = 50
-local float_move_binds = {
-    { mainMod .. " + ALT + right", hl.dsp.window.move({ x = floatStep, y = 0, relative = true }) },
-    { mainMod .. " + ALT + left",  hl.dsp.window.move({ x = -floatStep, y = 0, relative = true }) },
-    { mainMod .. " + ALT + up",    hl.dsp.window.move({ x = 0, y = -floatStep, relative = true }) },
-    { mainMod .. " + ALT + down",  hl.dsp.window.move({ x = 0, y = floatStep, relative = true }) },
-}
-
-for _, b in ipairs(float_move_binds) do
-    hl.bind(b[1], b[2], { repeating = true })
-end
-
--- Window Resizing (SUPER + SHIFT + Arrow Keys)
-local resizeUnit = 100
-local resize_binds = {
-    { mainMod .. " + SHIFT + right", hl.dsp.window.resize({ x = resizeUnit, y = 0, relative = true }) },
-    { mainMod .. " + SHIFT + left",  hl.dsp.window.resize({ x = -resizeUnit, y = 0, relative = true }) },
-    { mainMod .. " + SHIFT + up",    hl.dsp.window.resize({ x = 0, y = -resizeUnit, relative = true }) },
-    { mainMod .. " + SHIFT + down",  hl.dsp.window.resize({ x = 0, y = resizeUnit, relative = true }) },
-}
-
-for _, b in ipairs(resize_binds) do
-    hl.bind(b[1], b[2])
-end
+for _, b in ipairs(move_binds) do hl.bind(b[1], b[2]) end
 
 -- Workspaces 1-10 Navigation & Movement
 for i = 1, 10 do
@@ -513,15 +374,12 @@ for i = 1, 10 do
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
 end
 
--- Magic Scratchpad
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:magic" }))
 
--- Safe Hardware Clamshell Listeners
 hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("~/.config/hypr/scripts/lid-close.sh"), { locked = true })
 hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd("~/.config/hypr/scripts/lid-open.sh"), { locked = true })
 
--- Media, Audio & Hardware Brightness Keys
 local media_keys = {
     { "XF86AudioRaiseVolume",  "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+" },
     { "XF86AudioLowerVolume",  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
@@ -534,47 +392,21 @@ local media_keys = {
     { "XF86AudioPlay",         "playerctl play-pause" },
     { "XF86AudioPause",        "playerctl play-pause" },
 }
-
-for _, k in ipairs(media_keys) do
-    hl.bind(k[1], hl.dsp.exec_cmd(k[2]), { locked = true, repeating = true })
-end
+for _, k in ipairs(media_keys) do hl.bind(k[1], hl.dsp.exec_cmd(k[2]), { locked = true, repeating = true }) end
 
 --------------------------------------------------------------------------------
 -- WINDOW RULES
 --------------------------------------------------------------------------------
-
-hl.window_rule({
-    name           = "suppress-maximize-events",
-    match          = { class = ".*" },
-    suppress_event = "maximize",
-})
-
-hl.window_rule({
-    name     = "fix-xwayland-drags",
-    match    = { class = "^$", title = "^$", xwayland = true, float = true },
-    no_focus = true,
-})
-
-hl.window_rule({
-    name        = "smart-borders-solo",
-    match       = { workspace = "w[t1]", float = false },
-    border_size = 0,
-})
-
-hl.window_rule({
-    name   = "float-utilities",
-    match  = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" },
-    float  = true,
-    center = true,
-})
+hl.window_rule({ name = "suppress-maximize-events", match = { class = ".*" }, suppress_event = "maximize" })
+hl.window_rule({ name = "fix-xwayland-drags", match = { class = "^$", title = "^$", xwayland = true, float = true }, no_focus = true })
+hl.window_rule({ name = "smart-borders-solo", match = { workspace = "w[t1]", float = false }, border_size = 0 })
+hl.window_rule({ name = "float-utilities", match = { class = "^(pavucontrol|blueman-manager|nm-connection-editor)$" }, float = true, center = true })
 
 ```
 
 ---
 
 ## Phase 6: Session & Idle Management
-
-Coordinate sleep events with `systemd` to guarantee the screen locks before the kernel cuts power, and wakes up cleanly upon resume without tearing down display pipelines.
 
 ### 1. Idle Daemon Config (`~/.config/hypr/hypridle.conf`)
 
@@ -599,376 +431,1292 @@ general {
     no_fade_in = false
 }
 
-# (Followed by your standard background, input-field, and label definitions...)
-
 ```
 
 ---
 
-## Phase 7: Waybar Multi-Output Configuration
+## Phase 7: Quickshell Architecture (Unified Shell & Notifications)
 
-Waybar uses a multi-output configuration that excludes the backlight widget on external displays while retaining it on `eDP-1`.
+The system shell (Top Bar, Control Center, Power Menu, and Notifications) is built entirely in **Quickshell**, optimized with native Pipewire and UPower object trackers.
 
-### 1. Shared Modules Definition (`~/.config/waybar/modules.jsonc`)
+### Directory Structure
 
-```jsonc
-{
-    "layer": "top",
-    "position": "top",
-    "height": 34,
-    "spacing": 4,
-    "exclusive": true,
-    "gtk-layer-shell": true,
+```text
+~/.config/quickshell/
+├── shell.qml                  
+├── TopBar.qml                 
+├── ControlCenter.qml          
+├── NotificationToasts.qml     
+└── components/
+    ├── QuickToggle.qml        
+    └── SliderCard.qml         
 
-    "hyprland/workspaces": {
-        "format": "{name}",
-        "on-click": "activate",
-        "persistent-workspaces": {
-            "*": [1, 2, 3, 4, 5]
+```
+
+### 1. Root Scope (`~/.config/quickshell/shell.qml`)
+
+
+
+```qml
+import QtQuick
+import Quickshell
+import Quickshell.Io
+import Quickshell.Services.Notifications
+import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
+import "."
+
+Scope {
+    id: root
+
+    // UI States
+    property bool showControlCenter: false
+    property bool animVisible: false
+
+    // Wi-Fi State
+    property bool wifiEnabled: true
+    property string wifiSsid: ""
+    property int wifiSignal: 0
+    property string wifiIcon: "󰤨"
+
+    // Toggle State
+    property bool bluetoothEnabled: false
+    property bool dndEnabled: false
+
+    // Brightness (no native service; driven by brightnessctl)
+    property real brightnessLevel: 1.00
+
+    // ----------------------------------------------------
+    // AUDIO (Pipewire)
+    // ----------------------------------------------------
+    PwObjectTracker {
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
+    }
+    readonly property PwNode sink: Pipewire.defaultAudioSink
+    readonly property PwNode source: Pipewire.defaultAudioSource
+    readonly property real volumeLevel: sink?.audio?.volume ?? 0.0
+    readonly property bool volumeMuted: sink?.audio?.muted ?? false
+    readonly property bool micMuted: source?.audio?.muted ?? false
+
+    function setVolume(val) {
+        if (!sink?.ready || !sink.audio) return;
+        sink.audio.muted = false;
+        sink.audio.volume = Math.min(Math.max(val, 0.0), 1.0);
+    }
+    function toggleMute() {
+        if (sink?.ready && sink.audio) sink.audio.muted = !sink.audio.muted;
+    }
+    function toggleMic() {
+        if (source?.ready && source.audio) source.audio.muted = !source.audio.muted;
+    }
+
+    // ----------------------------------------------------
+    // BATTERY (UPower)
+    // ----------------------------------------------------
+    readonly property UPowerDevice battery: UPower.displayDevice
+    readonly property int batteryPercentage: {
+        let p = battery?.percentage ?? 1.0;
+        return Math.round(p <= 1.0 ? p * 100 : p);
+    }
+    readonly property bool batteryCharging:
+        battery?.state === UPowerDeviceState.Charging
+        || battery?.state === UPowerDeviceState.PendingCharge
+    readonly property bool batteryFull: battery?.state === UPowerDeviceState.FullyCharged
+    readonly property string batteryIcon: {
+        if (root.batteryCharging) return "󰂄";
+        let pct = root.batteryPercentage;
+        if (pct >= 90) return "";
+        if (pct >= 65) return "";
+        if (pct >= 35) return "";
+        if (pct >= 15) return "";
+        return "";
+    }
+
+    // ----------------------------------------------------
+    // POWER PROFILE (PowerProfiles)
+    // ----------------------------------------------------
+    readonly property string activeProfile: {
+        switch (PowerProfiles.profile) {
+        case PowerProfile.PowerSaver:  return "power-saver";
+        case PowerProfile.Performance: return "performance";
+        default:                       return "balanced";
         }
-    },
-
-    "hyprland/window": {
-        "format": "{}",
-        "format-empty": "",
-        "max-length": 50,
-        "separate-outputs": true
-    },
-
-    "power-profiles-daemon": {
-        "format": "{icon}",
-        "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
-        "tooltip": true,
-        "format-icons": {
-            "default": "",
-            "performance": "",
-            "balanced": "",
-            "power-saver": ""
+    }
+    function setPowerProfile(profile) {
+        switch (profile) {
+        case "power-saver": PowerProfiles.profile = PowerProfile.PowerSaver; break;
+        case "performance": PowerProfiles.profile = PowerProfile.Performance; break;
+        default:            PowerProfiles.profile = PowerProfile.Balanced; break;
         }
-    },
+    }
 
-    "clock": {
-        "format": "{:%m/%d %H:%M}",
-        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
-    },
+    // ----------------------------------------------------
+    // WI-FI
+    // ----------------------------------------------------
+    function updateWifiIcon() {
+        if (!root.wifiEnabled) {
+            root.wifiIcon = "󰖪";
+        } else if (root.wifiSsid === "" || root.wifiSignal === 0) {
+            root.wifiIcon = "󰤭";
+        } else if (root.wifiSignal >= 75) {
+            root.wifiIcon = "󰤨";
+        } else if (root.wifiSignal >= 50) {
+            root.wifiIcon = "󰤥";
+        } else if (root.wifiSignal >= 25) {
+            root.wifiIcon = "󰤢";
+        } else {
+            root.wifiIcon = "󰤟";
+        }
+    }
 
-    "backlight": {
-        "format": "{icon} {percent}%",
-        "format-icons": ["", "", "", "", "", "", "", "", ""]
-    },
+    Process {
+        id: getWifiProc
+        running: true
+        command: [
+            "sh", "-c",
+            "if [ \"$(nmcli radio wifi 2>/dev/null)\" != 'enabled' ]; then " +
+            "  echo 'disabled::0'; " +
+            "else " +
+            "  DEV_LINE=$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION dev 2>/dev/null | awk -F: '$2==\"wifi\" && $3==\"connected\" {print $1 \":\" $4; exit}'); " +
+            "  if [ -n \"$DEV_LINE\" ]; then " +
+            "    IFACE=$(echo \"$DEV_LINE\" | cut -d: -f1); " +
+            "    SSID=$(echo \"$DEV_LINE\" | cut -d: -f2-); " +
+            "    SIG=$(awk -v dev=\"$IFACE:\" '$1==dev {sub(/\\./, \"\", $3); print int($3 * 100 / 70)}' /proc/net/wireless 2>/dev/null); " +
+            "    [ -z \"$SIG\" ] && SIG=80; " +
+            "    echo \"connected:${SSID}:${SIG}\"; " +
+            "  else " +
+            "    echo 'disconnected::0'; " +
+            "  fi; " +
+            "fi"
+        ]
+        stdout: SplitParser {
+            onRead: data => {
+                let line = data.trim();
+                if (!line) return;
+                let parts = line.split(":");
+                let status = parts[0] || "";
 
-    "battery": {
-        "states": {
-            "warning": 30,
-            "critical": 15
-        },
-        "format": "{icon} {capacity}%",
-        "format-charging": "󰂄 {capacity}%",
-        "format-plugged": "󰚥 {capacity}%",
-        "format-alt": "{time} {icon}",
-        "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
-    },
+                if (status === "disabled") {
+                    root.wifiEnabled = false;
+                    root.wifiSsid = "";
+                    root.wifiSignal = 0;
+                } else if (status === "connected" && parts.length >= 3) {
+                    root.wifiEnabled = true;
+                    root.wifiSignal = parseInt(parts[parts.length - 1]) || 80;
+                    root.wifiSsid = parts.slice(1, parts.length - 1).join(":");
+                } else {
+                    root.wifiEnabled = true;
+                    root.wifiSsid = "";
+                    root.wifiSignal = 0;
+                }
+                root.updateWifiIcon();
+            }
+        }
+    }
 
-    "network": {
-        "format-wifi": "󰖩 {essid}",
-        "format-ethernet": "󰈀 Wired",
-        "format-disconnected": "󰖪 Disconnected",
-        "on-click": "nm-connection-editor"
-    },
+    Process {
+        id: nmMonitorProc
+        running: true
+        command: ["nmcli", "monitor"]
+        stdout: SplitParser {
+            onRead: _ => {
+                getWifiProc.running = false;
+                getWifiProc.running = true;
+            }
+        }
+    }
 
-    "bluetooth": {
-        "format": " {status}",
-        "format-disabled": "󰂲 Off",
-        "format-off": "󰂲 Off",
-        "format-on": "󰂯 On",
-        "format-connected": "󰂱 {device_alias}",
-        "tooltip-format": "{controller_alias}\t{controller_address}",
-        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
-        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
-        "on-click": "blueman-manager"
-    },
+    function toggleWifi() {
+        root.wifiEnabled = !root.wifiEnabled;
+        actionProc.exec(["nmcli", "radio", "wifi", root.wifiEnabled ? "on" : "off"]);
+    }
 
-    "pulseaudio": {
-        "format": "{icon} {volume}%",
-        "format-bluetooth": "{icon} {volume}% 󰂯",
-        "format-muted": "󰝟",
-        "format-icons": {
-            "headphone": "󰋋",
-            "hands-free": "󰋋",
-            "headset": "󰋋",
-            "phone": "󰏲",
-            "portable": "󰏲",
-            "car": "󰄋",
-            "default": ["󰕿", "󰖀", "󰕾"]
-        },
-        "on-click": "pavucontrol"
-    },
+    // ----------------------------------------------------
+    // BRIGHTNESS / BLUETOOTH
+    // ----------------------------------------------------
+    Process {
+        id: getBrightProc
+        running: true
+        command: ["sh", "-c", "brightnessctl -m | cut -d, -f4 | tr -d '%'"]
+        stdout: SplitParser {
+            onRead: data => {
+                let val = parseFloat(data.trim());
+                if (!isNaN(val)) root.brightnessLevel = Math.min(Math.max(val / 100.0, 0.05), 1.0);
+            }
+        }
+    }
 
-    "custom/notification": {
-        "format": "{} {icon}",
-        "format-icons": {
-            "notification": "<span foreground='red'><sup></sup></span>",
-            "none": "",
-            "dnd-notification": "<span foreground='red'><sup></sup></span>",
-            "dnd-none": "",
-            "inhibited-notification": "<span foreground='red'><sup></sup></span>",
-            "inhibited-none": "",
-            "dnd-inhibited-notification": "<span foreground='red'><sup></sup></span>",
-            "dnd-inhibited-none": ""
-        },
-        "return-type": "json",
-        "exec-if": "which swaync-client",
-        "exec": "swaync-client -swb",
-        "on-click": "swaync-client -t -sw",
-        "on-click-right": "swaync-client -d -sw",
-        "escape": true
-    },
+    Process { id: setBrightProc }
+    function setBrightness(val) {
+        root.brightnessLevel = Math.min(Math.max(val, 0.05), 1.0);
+        setBrightProc.exec(["brightnessctl", "set", `${Math.round(root.brightnessLevel * 100)}%`]);
+    }
 
-    "custom/power": {
-        "format": "⏻",
-        "on-click": "~/.config/waybar/scripts/power-menu.sh",
-        "tooltip": false
+    Process {
+        id: getBtProc
+        running: true
+        command: ["sh", "-c", "bluetoothctl show | grep -q 'Powered: yes' && echo on || echo off"]
+        stdout: SplitParser {
+            onRead: data => root.bluetoothEnabled = (data.trim() === "on")
+        }
+    }
+
+    function toggleBluetooth() {
+        root.bluetoothEnabled = !root.bluetoothEnabled;
+        actionProc.exec(["bluetoothctl", "power", root.bluetoothEnabled ? "on" : "off"]);
+    }
+
+    Timer {
+        interval: 5000
+        running: true
+        repeat: true
+        onTriggered: {
+            getBrightProc.running = false; getBrightProc.running = true;
+            getBtProc.running = false;     getBtProc.running = true;
+            getWifiProc.running = false;   getWifiProc.running = true;
+        }
+    }
+
+    // ----------------------------------------------------
+    // EXTERNAL SETTINGS APPS
+    // ----------------------------------------------------
+    Process { id: actionProc }
+    Process { id: appLaunchProc }
+
+    function runSystemCommand(cmd) {
+        actionProc.exec(["sh", "-c", cmd]);
+    }
+
+    function openWifiSettings() {
+        appLaunchProc.exec(["sh", "-c", "nm-connection-editor || foot -e nmtui"]);
+    }
+
+    function openBluetoothSettings() {
+        appLaunchProc.exec(["sh", "-c", "blueman-manager || blueberry || foot -e bluetoothctl"]);
+    }
+
+    function openAudioSettings() {
+        appLaunchProc.exec(["sh", "-c", "pavucontrol || helvum || foot -e alsamixer"]);
+    }
+
+    // ----------------------------------------------------
+    // NOTIFICATION SERVER & MODELS
+    // ----------------------------------------------------
+    ListModel { id: notifHistoryModel }
+    ListModel { id: activeToastModel }
+    readonly property int defaultToastTimeout: 5000
+
+    NotificationServer {
+        id: notifServer
+        actionsSupported: true
+        imageSupported: true
+
+        onNotification: notif => {
+            if (!notif) return;
+            notif.tracked = true;
+
+            let summaryText = notif.summary ? notif.summary.toString() : "Notification";
+            let bodyText = notif.body ? notif.body.toString() : "";
+            let timeStr = Qt.formatTime(new Date(), "hh:mm");
+            let nId = notif.id;
+            let dEntry = notif.desktopEntry ? notif.desktopEntry.toString() : "";
+
+            let timeoutMs = root.defaultToastTimeout;
+            if (notif.urgency === NotificationUrgency.Critical) {
+                timeoutMs = 0;
+            } else if (notif.expireTimeout > 0) {
+                timeoutMs = notif.expireTimeout * 1000;
+            }
+
+            notifHistoryModel.insert(0, {
+                "notifId": nId,
+                "summary": summaryText,
+                "body": bodyText,
+                "time": timeStr,
+                "appName": dEntry
+            });
+
+            if (!root.dndEnabled) {
+                activeToastModel.insert(0, {
+                    "notifId": nId,
+                    "summary": summaryText,
+                    "body": bodyText,
+                    "appName": dEntry,
+                    "timeoutMs": timeoutMs
+                });
+            }
+        }
+    }
+
+    function findNotification(nId) {
+        let tracked = notifServer.trackedNotifications.values;
+        for (let i = 0; i < tracked.length; i++) {
+            if (tracked[i].id == nId) return tracked[i];
+        }
+        return null;
+    }
+
+    function removeFromModel(model, nId) {
+        for (let i = 0; i < model.count; i++) {
+            if (model.get(i).notifId == nId) {
+                model.remove(i);
+                return;
+            }
+        }
+    }
+
+    Connections {
+        target: notifServer.trackedNotifications
+        function onObjectRemovedPost(object, index) {
+            root.removeFromModel(notifHistoryModel, object.id);
+            root.removeFromModel(activeToastModel, object.id);
+        }
+    }
+
+    function triggerAction(nId, appName) {
+        let actionFired = false;
+        let n = root.findNotification(nId);
+        
+        if (n) {
+            let chosen = null;
+            for (let j = 0; j < n.actions.length; j++) {
+                if (n.actions[j].identifier === "default") {
+                    chosen = n.actions[j];
+                    break;
+                }
+            }
+            if (!chosen && n.actions.length > 0) chosen = n.actions[0];
+            if (chosen) {
+                chosen.invoke();
+                actionFired = true;
+            } else {
+                n.dismiss();
+            }
+        }
+
+        if (!actionFired && appName && appName !== "") {
+            let cleanName = appName.replace(".desktop", "");
+            appLaunchProc.exec([
+                "hyprctl", "dispatch", "focuswindow", `class:(?i)${cleanName}`
+            ]);
+        }
+    }
+
+    function activateNotification(nId) {
+        let appName = "";
+        for (let i = 0; i < notifHistoryModel.count; i++) {
+            if (notifHistoryModel.get(i).notifId == nId) {
+                appName = notifHistoryModel.get(i).appName;
+                break;
+            }
+        }
+        root.removeFromModel(activeToastModel, nId);
+        root.removeFromModel(notifHistoryModel, nId);
+        root.triggerAction(nId, appName);
+    }
+
+    function executeToastAction(nId) {
+        root.activateNotification(nId);
+    }
+
+    function executeNotification(nId) {
+        root.activateNotification(nId);
+        root.showControlCenter = false;
+    }
+
+    function dismissToast(nId) {
+        root.removeFromModel(activeToastModel, nId);
+    }
+
+    function removeNotification(nId) {
+        let n = root.findNotification(nId);
+        if (n) n.dismiss();
+        root.removeFromModel(notifHistoryModel, nId);
+        root.removeFromModel(activeToastModel, nId);
+    }
+
+    function clearAllNotifications() {
+        for (let i = 0; i < notifHistoryModel.count; i++) {
+            let n = root.findNotification(notifHistoryModel.get(i).notifId);
+            if (n) n.dismiss();
+        }
+        notifHistoryModel.clear();
+        activeToastModel.clear();
+    }
+
+    // ----------------------------------------------------
+    // WINDOW INSTANCES
+    // ----------------------------------------------------
+    TopBar {
+        id: topBar
+        rootState: root
+    }
+
+    PanelWindow {
+        id: dismissBackdrop
+        visible: root.animVisible
+        color: "transparent"
+        anchors { top: true; bottom: true; left: true; right: true; }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.showControlCenter = false
+        }
+    }
+
+    ControlCenter {
+        id: controlCenter
+        rootState: root
+        topBarWindow: topBar
+        historyModel: notifHistoryModel
+    }
+
+    NotificationToasts {
+        id: notificationToasts
+        rootState: root
+        toastModel: activeToastModel
     }
 }
 
 ```
 
-### 2. Multi-Bar Root Config (`~/.config/waybar/config.jsonc`)
+### 2. Control Center Component (`~/.config/quickshell/ControlCenter.qml`)
 
-```jsonc
-[
-    {
-        "output": ["eDP-1"],
-        "include": ["~/.config/waybar/modules.jsonc"],
-        "modules-left": ["hyprland/workspaces"],
-        "modules-center": ["hyprland/window"],
-        "modules-right": [
-            "power-profiles-daemon",
-            "pulseaudio",
-            "network",
-            "bluetooth",
-            "backlight",
-            "battery",
-            "clock",
-            "custom/notification",
-            "custom/power"
-        ]
-    },
-    {
-        "output": ["DP-1", "DP-2", "DP-3", "HDMI-A-1"],
-        "include": ["~/.config/waybar/modules.jsonc"],
-        "modules-left": ["hyprland/workspaces"],
-        "modules-center": ["hyprland/window"],
-        "modules-right": [
-            "power-profiles-daemon",
-            "pulseaudio",
-            "network",
-            "bluetooth",
-            "battery",
-            "clock",
-            "custom/notification",
-            "custom/power"
-        ]
+
+
+```qml
+import QtQuick
+import QtQuick.Controls
+import Quickshell
+import "components"
+
+PopupWindow {
+    id: ccWindow
+    
+    required property var rootState
+    required property var topBarWindow
+    required property var historyModel
+
+    anchor.window: topBarWindow
+    anchor.rect.x: topBarWindow.width - implicitWidth
+    anchor.rect.y: topBarWindow.height + 10
+    
+    implicitWidth: 550
+    implicitHeight: 580
+    visible: rootState.animVisible
+    color: "transparent"
+
+    Rectangle {
+        id: popupContainer
+        anchors.fill: parent
+        color: "#2e3440"
+        radius: 16
+        border.color: Qt.rgba(0.50, 0.63, 0.75, 0.3)
+        border.width: 1
+
+        opacity: 0.0
+        y: -15
+
+        ParallelAnimation {
+            id: enterAnim
+            NumberAnimation { target: popupContainer; property: "opacity"; to: 1.0; duration: 160; easing.type: Easing.OutCubic }
+            NumberAnimation { target: popupContainer; property: "y"; to: 0; duration: 180; easing.type: Easing.OutBack; easing.overshoot: 1.05 }
+        }
+
+        ParallelAnimation {
+            id: exitAnim
+            NumberAnimation { target: popupContainer; property: "opacity"; to: 0.0; duration: 140; easing.type: Easing.InQuad }
+            NumberAnimation { target: popupContainer; property: "y"; to: -15; duration: 140; easing.type: Easing.InQuad }
+            onFinished: rootState.animVisible = false
+        }
+
+        Connections {
+            target: rootState
+            function onShowControlCenterChanged() {
+                if (rootState.showControlCenter) {
+                    exitAnim.stop();
+                    rootState.animVisible = true;
+                    enterAnim.restart();
+                } else {
+                    enterAnim.stop();
+                    exitAnim.restart();
+                }
+            }
+        }
+
+        Column {
+            anchors.fill: parent
+            anchors.margins: 20
+            spacing: 14
+
+            Column {
+                spacing: 4
+                Text { text: "Control Center"; color: "#eceff4"; font.pixelSize: 18; font.bold: true; font.family: "GoogleSansM Nerd Font" }
+                Text { text: "Focused system controls"; color: "#d8dee9"; font.pixelSize: 13; font.family: "GoogleSansM Nerd Font" }
+            }
+            
+            Row {
+                spacing: 15
+                
+                Column {
+                    spacing: 15
+                    
+                    SliderCard {
+                        icon: rootState.volumeMuted ? "󰝟" : (rootState.volumeLevel < 0.5 ? "" : "")
+                        iconColor: "#81a1c1"
+                        title: "Output volume"
+                        value: rootState.volumeLevel
+                        onValueChangedByUser: val => rootState.setVolume(val)
+                        onRightClicked: rootState.openAudioSettings()
+                    }
+
+                    SliderCard {
+                        icon: "󰃠"
+                        iconColor: "#b48ead"
+                        title: "Display brightness"
+                        value: rootState.brightnessLevel
+                        onValueChangedByUser: val => rootState.setBrightness(val)
+                    }
+                }
+
+                Grid {
+                    columns: 2
+                    spacing: 15
+                    
+                    QuickToggle {
+                        icon: rootState.wifiIcon
+                        title: rootState.wifiSsid !== "" ? (rootState.wifiSsid.length > 8 ? rootState.wifiSsid.substring(0, 7) + "…" : rootState.wifiSsid) : "Wi-Fi"
+                        active: rootState.wifiEnabled
+                        onToggled: rootState.toggleWifi()
+                        onRightClicked: rootState.openWifiSettings()
+                    }
+
+                    QuickToggle {
+                        icon: rootState.bluetoothEnabled ? "󰂯" : "󰂲"
+                        title: "Bluetooth"
+                        active: rootState.bluetoothEnabled
+                        onToggled: rootState.toggleBluetooth()
+                        onRightClicked: rootState.openBluetoothSettings()
+                    }
+
+                    QuickToggle {
+                        icon: rootState.micMuted ? "" : ""
+                        title: rootState.micMuted ? "Muted" : "Mic On"
+                        active: rootState.micMuted
+                        activeColor: "#bf616a"
+                        onToggled: rootState.toggleMic()
+                    }
+
+                    QuickToggle {
+                        icon: rootState.dndEnabled ? "󰂛" : "󰂚"
+                        title: "DND"
+                        active: rootState.dndEnabled
+                        activeColor: "#ebcb8b"
+                        onToggled: rootState.dndEnabled = !rootState.dndEnabled
+                    }
+                }
+            }
+
+            Row {
+                spacing: 15
+                
+                Repeater {
+                    model: [
+                        { id: "power-saver", name: "  Power saver" },
+                        { id: "balanced",    name: "  Balanced" },
+                        { id: "performance", name: "  Performance" }
+                    ]
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: 160
+                        height: 40
+                        radius: 10
+                        color: rootState.activeProfile === modelData.id ? "#81a1c1" : "transparent"
+                        border.color: rootState.activeProfile === modelData.id ? "#81a1c1" : "#4c566a"
+                        border.width: 1
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.name
+                            color: rootState.activeProfile === modelData.id ? "#2e3440" : "#d8dee9"
+                            font.pixelSize: 13
+                            font.bold: true
+                            font.family: "GoogleSansM Nerd Font"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: rootState.setPowerProfile(modelData.id)
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Qt.rgba(0.50, 0.63, 0.75, 0.2)
+            }
+
+            Item {
+                width: parent.width
+                height: 20
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: `Notifications (${ccWindow.historyModel.count})`
+                    color: "#eceff4"
+                    font.pixelSize: 14
+                    font.bold: true
+                    font.family: "GoogleSansM Nerd Font"
+                }
+
+                Text {
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: ccWindow.historyModel.count > 0
+                    text: "Clear All"
+                    color: "#81a1c1"
+                    font.pixelSize: 12
+                    font.bold: true
+                    font.family: "GoogleSansM Nerd Font"
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: rootState.clearAllNotifications()
+                    }
+                }
+            }
+
+            ListView {
+                id: historyListView
+                width: parent.width
+                height: 120
+                clip: true
+                spacing: 8
+                model: ccWindow.historyModel
+
+                delegate: Rectangle {
+                    width: historyListView.width
+                    height: 52
+                    radius: 10
+                    color: "#3b4252"
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: rootState.executeNotification(model.notifId)
+                    }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 10
+
+                        Text {
+                            text: "󰂚"
+                            color: "#81a1c1"
+                            font.pixelSize: 16
+                            font.family: "GoogleSansM Nerd Font"
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+
+                        Column {
+                            width: parent.width - 70
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 2
+
+                            Row {
+                                spacing: 8
+                                Text {
+                                    text: model.summary || ""
+                                    textFormat: Text.PlainText
+                                    color: "#eceff4"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: "GoogleSansM Nerd Font"
+                                    elide: Text.ElideRight
+                                    width: 320
+                                }
+                                Text {
+                                    text: model.time || ""
+                                    color: "#4c566a"
+                                    font.pixelSize: 10
+                                    font.family: "GoogleSansM Nerd Font"
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+                            }
+
+                            Text {
+                                text: model.body || ""
+                                textFormat: Text.PlainText
+                                color: "#d8dee9"
+                                font.pixelSize: 11
+                                font.family: "GoogleSansM Nerd Font"
+                                elide: Text.ElideRight
+                                width: parent.width
+                            }
+                        }
+
+                        Text {
+                            text: "󰅖"
+                            color: "#4c566a"
+                            font.pixelSize: 14
+                            font.family: "GoogleSansM Nerd Font"
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                propagateComposedEvents: false
+                                onClicked: mouse => {
+                                    mouse.accepted = true;
+                                    rootState.removeNotification(model.notifId);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    visible: ccWindow.historyModel.count === 0
+                    anchors.centerIn: parent
+                    text: "No notifications"
+                    color: "#4c566a"
+                    font.pixelSize: 13
+                    font.family: "GoogleSansM Nerd Font"
+                }
+            }
+
+            // --- SESSION CONTROLS ---
+            Rectangle {
+                width: parent.width
+                height: 1
+                color: Qt.rgba(0.50, 0.63, 0.75, 0.2)
+            }
+
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 30
+
+                Repeater {
+                    model: [
+                        { icon: "󰌾", action: "pidof hyprlock || hyprlock", color: "#eceff4" },
+                        { icon: "󰒲", action: "systemctl suspend", color: "#eceff4" },
+                        { icon: "󰍃", action: "uwsm stop", color: "#eceff4" },
+                        { icon: "󰑐", action: "systemctl reboot", color: "#eceff4" },
+                        { icon: "󰐥", action: "systemctl poweroff", color: "#bf616a" }
+                    ]
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        width: 44
+                        height: 44
+                        radius: 22
+                        color: hoverArea.containsMouse ? "#434c5e" : "transparent"
+                        
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: modelData.icon
+                            color: modelData.color
+                            font.pixelSize: 22
+                            font.family: "GoogleSansM Nerd Font"
+                        }
+
+                        MouseArea {
+                            id: hoverArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                rootState.showControlCenter = false;
+                                rootState.runSystemCommand(modelData.action);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
-]
+}
 
 ```
 
-### 3. Waybar Stylesheet (`~/.config/waybar/style.css`)
+### 3. Notification Toasts (`~/.config/quickshell/NotificationToasts.qml`)
 
-```css
-* {
-    font-family: "GoogleSansMNerdFont-Regular", sans-serif;
-    font-size: 15px;
-    min-height: 0;
+
+
+```qml
+import QtQuick
+import Quickshell
+
+PanelWindow {
+    id: toastWindow
+    
+    required property var rootState
+    required property var toastModel
+
+    anchors {
+        top: true
+        right: true
+    }
+    margins {
+        top: 54
+        right: 20
+    }
+    
+    implicitWidth: 360
+    implicitHeight: toastCol.implicitHeight + 10
+    color: "transparent"
+    
+    visible: toastModel.count > 0 && !rootState.dndEnabled
+
+    Column {
+        id: toastCol
+        spacing: 10
+        width: parent.width
+
+        Repeater {
+            model: toastModel
+
+            delegate: Rectangle {
+                id: toastCard
+                required property int index
+                required property var model
+
+                width: toastCol.width
+                height: contentCol.implicitHeight + 24
+                radius: 12
+                color: "#2e3440"
+                border.color: Qt.rgba(0.50, 0.63, 0.75, 0.4)
+                border.width: 1
+
+                Timer {
+                    interval: toastCard.model.timeoutMs
+                    running: toastCard.model.timeoutMs > 0
+                    onTriggered: toastWindow.rootState.dismissToast(toastCard.model.notifId)
+                }
+
+                Row {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 12
+                    
+                    Rectangle {
+                        width: 36
+                        height: 36
+                        radius: 8
+                        color: "#3b4252"
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰂚"
+                            color: "#81a1c1"
+                            font.pixelSize: 18
+                            font.family: "GoogleSansM Nerd Font"
+                        }
+                    }
+
+                    Column {
+                        id: contentCol
+                        width: parent.width - 48
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 3
+
+                        Text {
+                            text: toastCard.model.summary || ""
+                            color: "#eceff4"
+                            font.pixelSize: 13
+                            font.bold: true
+                            font.family: "GoogleSansM Nerd Font"
+                            textFormat: Text.PlainText
+                            elide: Text.ElideRight
+                            width: parent.width
+                        }
+
+                        Text {
+                            text: toastCard.model.body || ""
+                            color: "#d8dee9"
+                            font.pixelSize: 12
+                            font.family: "GoogleSansM Nerd Font"
+                            textFormat: Text.PlainText
+                            elide: Text.ElideRight
+                            maximumLineCount: 2
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+                    }
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: toastWindow.rootState.executeToastAction(toastCard.model.notifId)
+                }
+            }
+        }
+    }
 }
-
-window#waybar {
-    background: rgba(46, 52, 64, 0.85);
-    color: #eceff4;
-    border-bottom: 2px solid rgba(129, 161, 193, 0.3);
-}
-
-window#waybar.empty #window {
-    background-color: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-}
-
-#workspaces button {
-    padding: 0 8px;
-    color: #d8dee9;
-    background: transparent;
-    border-radius: 4px;
-    margin: 4px 2px;
-}
-
-#workspaces button:hover {
-    background: rgba(129, 161, 193, 0.2);
-    color: #81a1c1;
-}
-
-#workspaces button.active {
-    background: #81a1c1;
-    color: #2e3440;
-}
-
-#power-profiles-daemon,
-#clock,
-#battery,
-#backlight,
-#network,
-#bluetooth,
-#pulseaudio,
-#custom-notification,
-#custom-power,
-#window {
-    background: #3b4252;
-    padding: 2px 10px;
-    margin: 4px 3px;
-    border-radius: 6px;
-    color: #eceff4;
-}
-
-#battery.charging { color: #a3be8c; }
-#battery.warning:not(.charging) { color: #ebcb8b; }
-
-#battery.critical:not(.charging) {
-    color: #bf616a;
-    animation-name: blink;
-    animation-duration: 0.5s;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-}
-
-@keyframes blink {
-    to { background-color: #bf616a; color: #2e3440; }
-}
-
-#custom-power { color: #bf616a; margin-right: 6px; }
-#custom-power:hover { background: #bf616a; color: #2e3440; }
 
 ```
 
-### 4. Power Menu Script (`~/.config/waybar/scripts/power-menu.sh`)
+### 4. Top Bar Component (`~/.config/quickshell/TopBar.qml`)
 
-```bash
-#!/usr/bin/env bash
 
-options="󰌾  Lock\n󰒲  Sleep\n󰍃  Logout\n󰑐  Reboot\n󰐥  Shutdown"
-chosen=$(echo -e "$options" | wofi --dmenu --prompt "Power" --width 200 --lines 5 --cache-file /dev/null)
 
-case "$chosen" in
-    *"Lock")
-        hyprlock
-        ;;
-    *"Sleep")
-        systemctl suspend
-        ;;
-    *"Logout")
-        uwsm stop
-        ;;
-    *"Reboot")
-        systemctl reboot
-        ;;
-    *"Shutdown")
-        systemctl poweroff
-        ;;
-esac
+```qml
+import QtQuick
+import Quickshell
+import Quickshell.Hyprland
+
+PanelWindow {
+    id: topBarRoot
+    
+    required property var rootState
+
+    anchors {
+        top: true
+        left: true
+        right: true
+    }
+    margins {
+        top: 10
+        left: 20
+        right: 20
+    }
+    
+    implicitHeight: 36
+    color: "transparent"
+    exclusiveZone: 46 
+
+    Rectangle {
+        anchors.fill: parent
+        color: "#2e3440" 
+        radius: 18
+        border.color: Qt.rgba(0.50, 0.63, 0.75, 0.3)
+        border.width: 1
+
+        // LEFT: Hyprland Workspaces
+        Row {
+            anchors {
+                left: parent.left
+                leftMargin: 18
+                verticalCenter: parent.verticalCenter
+            }
+            spacing: 8
+
+            Repeater {
+                model: [1, 2, 3, 4, 5]
+
+                delegate: Rectangle {
+                    required property int modelData
+                    readonly property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData
+                    readonly property bool exists: {
+                        for (let i = 0; i < Hyprland.workspaces.values.length; i++) {
+                            if (Hyprland.workspaces.values[i].id === modelData) return true;
+                        }
+                        return false;
+                    }
+
+                    width: isFocused ? 20 : 8
+                    height: 8
+                    radius: 4
+                    color: isFocused ? "#81a1c1" : (exists ? "#d8dee9" : "#4c566a")
+
+                    Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: 180 } }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Hyprland.dispatch(`workspace ${modelData}`)
+                    }
+                }
+            }
+        }
+
+        // CENTER: Clock
+        Text {
+            id: clockText
+            anchors.centerIn: parent
+            color: "#eceff4"
+            font.pixelSize: 15
+            font.bold: true
+            font.family: "GoogleSansM Nerd Font"
+            text: Qt.formatDateTime(clock.date, "hh:mm | ddd, MMM d")
+            SystemClock {
+                id: clock
+                precision: SystemClock.Minutes
+            }
+        }
+
+        // RIGHT: Status Modules
+        Row {
+            anchors {
+                right: parent.right
+                rightMargin: 10
+                verticalCenter: parent.verticalCenter
+            }
+            spacing: 15
+
+            Text {
+                visible: rootState.dndEnabled
+                text: "󰂛"
+                color: "#ebcb8b"
+                font.pixelSize: 14
+                font.family: "GoogleSansM Nerd Font"
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Text { 
+                text: `${rootState.volumeMuted ? "󰝟" : ""} ${Math.round(rootState.volumeLevel * 100)}%`
+                color: rootState.volumeMuted ? "#4c566a" : "#eceff4"
+                font.pixelSize: 14
+                font.family: "GoogleSansM Nerd Font"
+                anchors.verticalCenter: parent.verticalCenter 
+            }
+
+            Row {
+                spacing: 6
+                anchors.verticalCenter: parent.verticalCenter
+
+                Text { 
+                    text: rootState.wifiIcon
+                    color: rootState.wifiEnabled ? "#eceff4" : "#4c566a"
+                    font.pixelSize: 14
+                    font.family: "GoogleSansM Nerd Font"
+                    anchors.verticalCenter: parent.verticalCenter 
+                }
+
+                Text {
+                    visible: rootState.wifiEnabled && rootState.wifiSsid !== ""
+                    text: `${rootState.wifiSsid} ${rootState.wifiSignal}%`
+                    color: "#eceff4"
+                    font.pixelSize: 13
+                    font.family: "GoogleSansM Nerd Font"
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            Text { 
+                text: `${rootState.batteryIcon} ${rootState.batteryPercentage}%`
+                color: rootState.batteryPercentage <= 20 && !rootState.batteryCharging ? "#bf616a" : (rootState.batteryCharging ? "#a3be8c" : "#eceff4")
+                font.pixelSize: 14
+                font.family: "GoogleSansM Nerd Font"
+                anchors.verticalCenter: parent.verticalCenter 
+            }
+            
+            Rectangle {
+                width: 26
+                height: 26
+                radius: 13
+                color: rootState.showControlCenter || toggleArea.containsMouse ? "#434c5e" : "transparent"
+                anchors.verticalCenter: parent.verticalCenter
+                
+                Text {
+                    anchors.centerIn: parent
+                    text: rootState.showControlCenter ? "" : ""
+                    color: "#81a1c1"
+                    font.pixelSize: 18
+                    font.family: "GoogleSansM Nerd Font"
+                }
+                
+                MouseArea {
+                    id: toggleArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: rootState.showControlCenter = !rootState.showControlCenter
+                }
+            }
+        }
+    }
+}
 
 ```
 
-*(Ensure executable: `chmod +x ~/.config/waybar/scripts/power-menu.sh`)*
+### 5. Components (`~/.config/quickshell/components/`)
+
+
+
+**QuickToggle.qml**
+
+```qml
+import QtQuick
+
+Rectangle {
+    id: toggleRoot
+    
+    property string icon: ""
+    property string title: ""
+    property bool active: false
+    property color activeColor: "#81a1c1"
+    
+    signal toggled()
+    signal rightClicked()
+
+    width: 115
+    height: 75
+    radius: 12
+    color: active ? "#434c5e" : "#3b4252"
+    border.color: active ? activeColor : "transparent"
+    border.width: 1
+
+    Column { 
+        anchors.centerIn: parent
+        spacing: 4
+
+        Text { 
+            text: toggleRoot.icon
+            color: toggleRoot.active ? toggleRoot.activeColor : "#d8dee9"
+            font.pixelSize: 20
+            font.family: "GoogleSansM Nerd Font"
+            anchors.horizontalCenter: parent.horizontalCenter 
+        }
+
+        Text { 
+            text: toggleRoot.title
+            color: "#eceff4"
+            font.pixelSize: 13
+            font.bold: true
+            font.family: "GoogleSansM Nerd Font"
+            anchors.horizontalCenter: parent.horizontalCenter 
+        }
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        cursorShape: Qt.PointingHandCursor
+        onClicked: mouse => {
+            if (mouse.button === Qt.RightButton) {
+                toggleRoot.rightClicked();
+            } else {
+                toggleRoot.toggled();
+            }
+        }
+    }
+}
+
+```
+
+**SliderCard.qml**
+
+```qml
+import QtQuick
+
+Rectangle {
+    id: sliderRoot
+    
+    property string icon: ""
+    property color iconColor: "#81a1c1"
+    property string title: ""
+    property real value: 0.0
+    
+    signal valueChangedByUser(real newValue)
+    signal rightClicked()
+
+    width: 240
+    height: 75
+    radius: 12
+    color: "#3b4252"
+
+    MouseArea {
+        anchors.fill: parent
+        acceptedButtons: Qt.RightButton
+        onClicked: sliderRoot.rightClicked()
+    }
+
+    Text { 
+        text: sliderRoot.icon
+        color: sliderRoot.iconColor
+        font.pixelSize: 22
+        font.family: "GoogleSansM Nerd Font"
+        anchors.left: parent.left
+        anchors.leftMargin: 15
+        anchors.verticalCenter: parent.verticalCenter 
+    }
+
+    Column {
+        anchors.left: parent.left
+        anchors.leftMargin: 52
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 8
+
+        Text { 
+            text: sliderRoot.title
+            color: "#eceff4"
+            font.pixelSize: 13
+            font.bold: true
+            font.family: "GoogleSansM Nerd Font" 
+        }
+
+        Rectangle {
+            id: track
+            width: 165
+            height: 8
+            radius: 4
+            color: "#4c566a"
+
+            Rectangle { 
+                width: parent.width * sliderRoot.value
+                height: parent.height
+                radius: 4
+                color: sliderRoot.iconColor 
+            }
+
+            MouseArea {
+                id: hitArea
+                anchors.fill: parent
+                anchors.margins: -hitArea.hitMargin
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                readonly property int hitMargin: 6
+
+                function fraction(x) {
+                    return Math.min(Math.max((x - hitArea.hitMargin) / track.width, 0.0), 1.0);
+                }
+
+                onPositionChanged: mouse => {
+                    if (pressed && (mouse.buttons & Qt.LeftButton)) {
+                        sliderRoot.valueChangedByUser(hitArea.fraction(mouse.x));
+                    }
+                }
+                onClicked: mouse => {
+                    if (mouse.button === Qt.RightButton) {
+                        sliderRoot.rightClicked();
+                    } else {
+                        sliderRoot.valueChangedByUser(hitArea.fraction(mouse.x));
+                    }
+                }
+            }
+        }
+    }
+
+    Text { 
+        text: `${Math.round(sliderRoot.value * 100)}%`
+        color: "#d8dee9"
+        font.pixelSize: 12
+        anchors.right: parent.right
+        anchors.rightMargin: 15
+        anchors.top: parent.top
+        anchors.topMargin: 15
+        font.family: "GoogleSansM Nerd Font" 
+    }
+}
+
+```
 
 ---
 
-## Phase 8: SwayNC & Native UI Theming
-
-### 1. Hyprtoolkit Config (`~/.config/hypr/hyprtoolkit.conf`)
-
-```ini
-background = 0xFF2E3440        
-base = 0xFF3B4252              
-alternate_base = 0xFF434C5E    
-text = 0xFFD8DEE9              
-bright_text = 0xFFECEFF4       
-accent = 0xFF81A1C1            
-accent_secondary = 0xFF88C0D0  
-
-font_family = GoogleSansMNerdFont-Regular
-font_size = 13
-h1_size = 19
-h2_size = 15
-h3_size = 13
-icon_theme = Papirus-Dark
-
-rounding_large = 10
-rounding_small = 5             
-
-```
-
-### 2. SwayNC Config (`~/.config/swaync/config.json`)
-
-```json
-{
-  "$schema": "/etc/swaync/configSchema.json",
-  "positionX": "right",
-  "positionY": "top",
-  "layer": "overlay",
-  "control-center-width": 400,
-  "control-center-height": 600,
-  "notification-window-width": 400,
-  "keyboard-shortcuts": true,
-  "image-visibility": "never",
-  "transition-time": 200,
-  "hide-on-clear": true,
-  "hide-on-action": true,
-  "script-fail-notify": true,
-  "widgets": [
-    "title",
-    "dnd",
-    "notifications",
-    "mpris"
-  ],
-  "widget-config": {
-    "title": { "text": "Notification Center", "clear-all-button": true, "button-text": "Clear All" },
-    "dnd": { "text": "Do Not Disturb" },
-    "mpris": { "image-size": 96, "blur": 14 }
-  }
-}
-
-```
-
-### 3. SwayNC Stylesheet (`~/.config/swaync/style.css`)
-
-```css
-* { font-family: "GoogleSansMNerdFont-Regular", sans-serif; font-size: 13px; background: transparent; box-shadow: none; }
-.control-center { background: rgba(46, 52, 64, 0.95); border: 2px solid #81a1c1; border-radius: 12px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); color: #eceff4; padding: 12px; }
-.control-center-list, .notification-row, .notification-background { background: transparent; box-shadow: none; border: none; margin: 4px 0; padding: 0px; }
-.notification { background: #3b4252; border: 2px solid #81a1c1; border-radius: 10px; padding: 8px; color: #eceff4; }
-.notification-content { background: transparent; color: #eceff4; }
-.notification-icon { min-width: 0px; min-height: 0px; margin: 0px; display: none; }
-.summary { font-weight: bold; color: #eceff4; font-size: 14px; }
-.body { color: #d8dee9; font-size: 12px; }
-.time { color: #4c566a; font-size: 10px; }
-.close-button { background: #434c5e; color: #eceff4; border-radius: 6px; padding: 2px 6px; }
-.close-button:hover { background: #bf616a; color: #2e3440; }
-.widget-title { color: #eceff4; margin: 8px; font-size: 16px; }
-.widget-title>button { background: #3b4252; color: #eceff4; border: 1px solid #434c5e; border-radius: 6px; padding: 4px 10px; }
-.widget-title>button:hover { background: #81a1c1; color: #2e3440; }
-.widget-dnd { background: #3b4252; border-radius: 8px; padding: 8px; margin: 8px 0; color: #eceff4; }
-.widget-dnd switch { background: #434c5e; border-radius: 12px; }
-.widget-dnd switch:checked { background: #81a1c1; }
-.widget-mpris { background: #3b4252; border-radius: 10px; padding: 10px; margin-top: 8px; color: #eceff4; }
-.widget-mpris-player { padding: 8px; }
-
-```
-
----
-
-## Phase 9: Thunar File Manager D-Bus Integration
+## Phase 8: Thunar File Manager D-Bus Integration
 
 ```bash
 xdg-mime default thunar.desktop inode/directory
