@@ -1,8 +1,6 @@
----
-
 # Comprehensive Fedora Hyprland Environment Setup Guide (UWSM Edition)
 
-This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for screen sharing, native HDR support, a kernel-aware True Clamshell Mode, silent PAM keyring unlocking via `greetd`, and a unified, animated Nord-themed interface powered natively by **Quickshell**.
+This blueprint details a fully configured, minimalist **Hyprland** Wayland environment on **Fedora Linux**, integrated cleanly with **UWSM (Universal Wayland Session Manager)**. This setup guarantees enterprise-grade systemd tracking, automated D-Bus portal synchronization for screen sharing, native HDR support, a kernel-aware True Clamshell Mode, silent PAM keyring unlocking via `greetd`, an idle session management daemon (`hypridle`), a secure lockscreen (`hyprlock`), and a unified Nord-themed interface powered natively by **Quickshell** and **Walker**.
 
 ---
 
@@ -46,20 +44,22 @@ sudo dnf autoremove
 
 ## Phase 2: System Package Installation
 
-Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, keyring libraries, and icon themes. *(Note: Quickshell should be installed via its respective repository/COPR or built from source).*
+Install the compositor, session manager (`uwsm`), utilities, portals, media capture tools, keyring libraries, icon themes, idle manager, lockscreen, and the Walker application launcher.
 
 ```bash
+sudo dnf copr enable errornointernet/walker
 sudo dnf install \
     hyprland \
     uwsm \
     greetd \
     agreety \
     quickshell \
+    walker \
+    elephant \
     hyprpaper \
     hypridle \
     hyprlock \
     alacritty \
-    wofi \
     thunar \
     pavucontrol \
     blueman \
@@ -104,8 +104,6 @@ user = "greetd"
 
 ### 2. Configure PAM for Greetd (`/etc/pam.d/greetd`)
 
-Explicitly include `pam_gnome_keyring.so` to bypass service-name restrictions and unlock the login keyring during terminal authentication.
-
 ```pam
 #%PAM-1.0
 auth       substack     system-auth
@@ -139,7 +137,7 @@ sudo systemctl enable --now power-profiles-daemon
 
 ## Phase 4: Display & Media Scripts
 
-Create the custom background scripts required for display adjustments and media capture. These scripts are context-aware to prevent Wayland surface crashes during suspend/resume cycles.
+Create custom background scripts for display adjustments, lid switching, and media capture.
 
 ```bash
 mkdir -p ~/.config/hypr/scripts
@@ -147,8 +145,6 @@ mkdir -p ~/.config/hypr/scripts
 ```
 
 ### 1. Dynamic Night Light (`~/.config/hypr/scripts/dynamic-nightlight.sh`)
-
-Fetches coordinates via IP, applies a warm gamma filter, and safely manages the laptop screen state if closed.
 
 ```bash
 #!/usr/bin/env bash
@@ -170,12 +166,8 @@ fi
 sleep 0.5
 
 if grep -iq closed /proc/acpi/button/lid/*/state 2>/dev/null; then
-    if [ "$(hyprctl monitors | grep -c "^Monitor")" -gt 1 ]; then
-        if pidof hyprlock > /dev/null; then
-            hyprctl dispatch dpms off eDP-1
-        else
-            hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
-        fi
+    if hyprctl monitors | grep -q "DP-1"; then
+        hyprctl eval 'hl.monitor({output="eDP-1", disabled=true})'
     fi
 fi
 
@@ -202,7 +194,6 @@ fi
 if ! hyprctl monitors | grep -q "Monitor eDP-1"; then
     hyprctl eval 'hl.monitor({output="eDP-1", mode="2560x1600@60", position="0x1440", scale="1.0", bitdepth=10, cm="auto", disabled=false})'
 fi
-hyprctl dispatch dpms on
 
 ```
 
@@ -220,14 +211,21 @@ fi
 
 ```
 
-### 5. Wofi Application Toggle (`~/.config/hypr/scripts/wofi-toggle.sh`)
+### 5. Screen Recording (`~/.config/hypr/scripts/screenrecord.sh`)
 
 ```bash
 #!/usr/bin/env bash
-if pidof wofi > /dev/null; then
-    killall wofi
+mkdir -p ~/Videos/Recordings
+if pidof wf-recorder > /dev/null; then
+    pkill wf-recorder
+    notify-send "Recording Stopped" "Video saved to ~/Videos/Recordings" -i media-record
 else
-    wofi --show drun
+    notify-send "Screen Recording" "Select an area to begin... (Press ESC to cancel)" -i media-record
+    REGION=$(slurp)
+    if [ -z "$REGION" ]; then exit 0; fi
+    FILE=~/Videos/Recordings/Record_$(date +'%Y%m%d_%H%M%S').mp4
+    wf-recorder -g "$REGION" -f "$FILE" &
+    notify-send "Screen Recording" "Recording started! Press SUPER+SHIFT+R to stop." -i media-record
 fi
 
 ```
@@ -236,55 +234,149 @@ fi
 
 ---
 
-## Phase 5: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
+## Phase 5: Idle & Session Management Configuration
+
+### 1. Idle Daemon Config (`~/.config/hypr/hypridle.conf`)
+
+Manages power-saving timeouts, screen dimming, locking, DPMS output shutdowns, and system suspension.
+
+```ini
+listener {
+    timeout = 150
+    on-timeout = brightnessctl -s set 10
+    on-resume = brightnessctl -r
+}
+
+listener {
+    timeout = 300
+    on-timeout = loginctl lock-session
+}
+
+listener {
+    timeout = 330
+    on-timeout = hyprctl dispatch dpms off
+    on-resume = hyprctl dispatch dpms on
+}
+
+listener {
+    timeout = 1800
+    on-timeout = systemctl suspend
+}
+
+general {
+    lock_cmd = pidof hyprlock || hyprlock
+    before_sleep_cmd = loginctl lock-session
+    after_sleep_cmd = hyprctl dispatch dpms on
+}
+
+```
+
+### 2. Lockscreen Config (`~/.config/hypr/hyprlock.conf`)
+
+Provides a blurred, Nord-styled security lock interface.
+
+```ini
+general {
+    disable_loading_bar = true
+    hide_cursor = true
+    grace = 0
+    no_fade_in = false
+}
+
+background {
+    monitor =
+    path = screenshot
+    blur_passes = 3
+    blur_size = 8
+    noise = 0.0117
+    contrast = 0.8916
+    brightness = 0.8172
+    vibrancy = 0.1696
+    color = rgb(46, 52, 64)
+}
+
+label {
+    monitor =
+    text = $TIME
+    color = rgb(216, 222, 233)
+    font_size = 90
+    font_family = GoogleSansMNerdFont-Regular
+    position = 0, 150
+    halign = center
+    valign = center
+}
+
+input-field {
+    monitor =
+    size = 280, 50
+    outline_thickness = 2
+    dots_size = 0.25
+    dots_spacing = 0.2
+    dots_center = true
+    outer_color = rgb(136, 192, 208)
+    inner_color = rgb(59, 66, 82)
+    font_color = rgb(216, 222, 233)
+    fade_on_empty = false
+    placeholder_text = <i>  Enter Password...</i>
+    hide_input = false
+    check_color = rgb(235, 203, 139)
+    fail_color = rgb(191, 97, 106)
+    fail_text = <i>$FAIL <b>($ATTEMPTS)</b></i>
+    position = 0, -40
+    halign = center
+    valign = center
+}
+
+```
+
+---
+
+## Phase 6: Hyprland Lua Configuration (`~/.config/hypr/hyprland.lua`)
 
 ```lua
 --------------------------------------------------------------------------------
 -- HYPRLAND CONFIGURATION (LUA)
 --------------------------------------------------------------------------------
 
--- 1. Define Laptop Panel Settings (Single Source of Truth)
 local eDP1_config = {
     output   = "eDP-1",
     mode     = "2560x1600@60",
     position = "0x1440",
-    scale    = "1.0",
+    scale    = "1.25",
     bitdepth = 10,
     cm       = "auto",
 }
 
--- 2. Read hardware states from the Linux kernel
 local handle_lid = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
 local lid_state = handle_lid:read("*a") or ""
 handle_lid:close()
 
+local handle_dp = io.popen("cat /sys/class/drm/card*-DP-*/status 2>/dev/null | grep -w 'connected'")
+local dp_state = handle_dp:read("*a") or ""
+handle_dp:close()
+
 local is_closed = string.find(string.lower(lid_state), "closed")
 
--- 3. Dynamically configure eDP-1 based on Lid State
 if is_closed then
     hl.monitor({ output = eDP1_config.output, disabled = true })
 else
     hl.monitor(eDP1_config)
+    hl.monitor({
+        output   = "DP-1",
+        mode     = "highres@highrr",
+        position = "0x0",
+        scale    = "1.0",
+        bitdepth = 10,
+        cm       = "auto",
+    })
 end
 
--- External Display (Always On)
-hl.monitor({
-    output   = "DP-1",
-    mode     = "highres@highrr",
-    position = "0x0",
-    scale    = "1.0",
-    bitdepth = 10,
-    cm       = "hdr",
-})
-
--- Default Applications & Variables
 local terminal    = "uwsm app -- alacritty"
-local menu        = "~/.config/hypr/scripts/wofi-toggle.sh"
+local menu        = "walker"
 local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
 local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
--- Environment Variables (Critical for Portals & Theming)
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
@@ -292,7 +384,6 @@ hl.env("GTK_THEME", "Adwaita:dark")
 hl.env("QT_QPA_PLATFORM", "wayland")
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
--- Autostart Daemons & Services
 hl.on("hyprland.start", function()
     hl.exec_cmd("gnome-keyring-daemon --start --components=pkcs11,secrets,ssh")
     hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP SSH_AUTH_SOCK")
@@ -305,13 +396,14 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("uwsm app -- hyprpaper")
     hl.exec_cmd("uwsm app -- nm-applet --indicator")
     hl.exec_cmd("uwsm app -- blueman-applet")
+    hl.exec_cmd("uwsm app -- elephant")
+    hl.exec_cmd("uwsm app -- walker --gapplication-service")
     hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
 
     hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
     hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
 end)
 
--- Core System & Appearance Settings
 hl.config({
     ecosystem = { no_donation_nag = true, no_update_news = false },
     general = { gaps_in = 4, gaps_out = 10, border_size = 0, layout = "dwindle", resize_on_border = true, allow_tearing = false },
@@ -326,14 +418,11 @@ hl.config({
         force_default_wallpaper = 0,
         disable_hyprland_logo = true,
         disable_hyprland_guiutils_check = false,
-        focus_on_activate = true, -- CRITICAL for D-Bus notification focus
+        focus_on_activate = true,
     },
-    input = { kb_layout = "us", follow_mouse = 1, sensitivity = 0, touchpad = { natural_scroll = true } },
+    input = { kb_layout = "us", follow_mouse = 0, sensitivity = 0, touchpad = { natural_scroll = true } },
 })
 
---------------------------------------------------------------------------------
--- KEYBINDINGS
---------------------------------------------------------------------------------
 local app_binds = {
     { mainMod .. " + T",         hl.dsp.exec_cmd(terminal) },
     { mainMod .. " + R",         hl.dsp.exec_cmd(menu) },
@@ -347,6 +436,7 @@ local app_binds = {
     { mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
     { mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh") },
     { mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh") },
+    { mainMod .. " + SHIFT + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenrecord.sh") },
 }
 
 for _, b in ipairs(app_binds) do hl.bind(b[1], b[2]) end
@@ -367,7 +457,6 @@ local move_binds = {
 }
 for _, b in ipairs(move_binds) do hl.bind(b[1], b[2]) end
 
--- Workspaces 1-10 Navigation & Movement
 for i = 1, 10 do
     local key = i % 10
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
@@ -394,9 +483,6 @@ local media_keys = {
 }
 for _, k in ipairs(media_keys) do hl.bind(k[1], hl.dsp.exec_cmd(k[2]), { locked = true, repeating = true }) end
 
---------------------------------------------------------------------------------
--- WINDOW RULES
---------------------------------------------------------------------------------
 hl.window_rule({ name = "suppress-maximize-events", match = { class = ".*" }, suppress_event = "maximize" })
 hl.window_rule({ name = "fix-xwayland-drags", match = { class = "^$", title = "^$", xwayland = true, float = true }, no_focus = true })
 hl.window_rule({ name = "smart-borders-solo", match = { workspace = "w[t1]", float = false }, border_size = 0 })
@@ -406,52 +492,158 @@ hl.window_rule({ name = "float-utilities", match = { class = "^(pavucontrol|blue
 
 ---
 
-## Phase 6: Session & Idle Management
+## Phase 7: Walker Application Launcher Configuration
 
-### 1. Idle Daemon Config (`~/.config/hypr/hypridle.conf`)
+### 1. Walker Config (`~/.config/walker/config.toml`)
 
-```ini
-general {
-    lock_cmd = pidof hyprlock || hyprlock
-    before_sleep_cmd = loginctl lock-session
-    after_sleep_cmd = hyprctl dispatch dpms on
-}
+
+
+```toml
+theme = "nord"
+close_when_open = true
+force_keyboard_focus = true
+
+[builtins.applications]
+weight = 100
+
+[builtins.runner]
+weight = 90
 
 ```
 
-### 2. Lockscreen Config (`~/.config/hypr/hyprlock.conf`)
+### 2. Walker Nord Theme (`~/.config/walker/themes/nord/style.css`)
 
-Ensure `immediate_render` is NOT used, as it races with the DRM driver wake sequence and causes permanent black screens.
 
-```ini
-general {
-    disable_loading_bar = true
-    hide_cursor = true
-    grace = 0
-    no_fade_in = false
+
+```css
+@define-color window_bg_color #2e3440;
+@define-color accent_bg_color #81a1c1;
+@define-color theme_fg_color #eceff4;
+@define-color error_bg_color #bf616a;
+@define-color error_fg_color #eceff4;
+
+* {
+  all: unset;
+}
+
+popover {
+  background: #3b4252;
+  border: 1px solid @accent_bg_color;
+  border-radius: 18px;
+  padding: 10px;
+}
+
+.normal-icons {
+  -gtk-icon-size: 16px;
+}
+
+.large-icons {
+  -gtk-icon-size: 32px;
+}
+
+scrollbar {
+  opacity: 0;
+}
+
+.box-wrapper {
+  box-shadow:
+    0 19px 38px rgba(0, 0, 0, 0.4),
+    0 15px 12px rgba(0, 0, 0, 0.3);
+  background: @window_bg_color;
+  padding: 20px;
+  border-radius: 20px;
+  border: 2px solid @accent_bg_color;
+}
+
+.preview-box,
+.elephant-hint,
+.placeholder {
+  color: @theme_fg_color;
+}
+
+.search-container {
+  border-radius: 10px;
+}
+
+.input placeholder {
+  opacity: 0.5;
+  color: #4c566a;
+}
+
+.input selection {
+  background: #434c5e;
+}
+
+.input {
+  caret-color: @theme_fg_color;
+  background: #3b4252;
+  padding: 12px;
+  color: @theme_fg_color;
+  border-radius: 8px;
+  border: 1px solid #434c5e;
+  font-family: "GoogleSansM Nerd Font", sans-serif;
+  font-size: 16px;
+}
+
+.input:focus,
+.input:active {
+  border: 1px solid @accent_bg_color;
+  background: #434c5e;
+}
+
+.list {
+  color: @theme_fg_color;
+  font-family: "GoogleSansM Nerd Font", sans-serif;
+}
+
+.item-box {
+  border-radius: 10px;
+  padding: 10px;
+  font-family: "GoogleSansM Nerd Font", sans-serif;
+}
+
+child:selected .item-box,
+row:selected .item-box {
+  background: alpha(@accent_bg_color, 0.3);
+  border-radius: 10px;
+}
+
+.item-text {
+  color: @theme_fg_color;
+  font-weight: bold;
+}
+
+.item-subtext {
+  font-size: 12px;
+  opacity: 0.8;
+  color: #d8dee9;
+}
+
+.keybinds {
+  padding-top: 10px;
+  border-top: 1px solid #3b4252;
+  font-size: 12px;
+  color: #4c566a;
+}
+
+.keybind-label {
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid #4c566a;
+  color: @theme_fg_color;
+}
+
+.error {
+  padding: 10px;
+  background: @error_bg_color;
+  color: @error_fg_color;
 }
 
 ```
 
 ---
 
-## Phase 7: Quickshell Architecture (Unified Shell & Notifications)
-
-The system shell (Top Bar, Control Center, Power Menu, and Notifications) is built entirely in **Quickshell**, optimized with native Pipewire and UPower object trackers.
-
-### Directory Structure
-
-```text
-~/.config/quickshell/
-├── shell.qml                  
-├── TopBar.qml                 
-├── ControlCenter.qml          
-├── NotificationToasts.qml     
-└── components/
-    ├── QuickToggle.qml        
-    └── SliderCard.qml         
-
-```
+## Phase 8: Quickshell Architecture (Unified Shell & Notifications)
 
 ### 1. Root Scope (`~/.config/quickshell/shell.qml`)
 
@@ -469,26 +661,19 @@ import "."
 Scope {
     id: root
 
-    // UI States
     property bool showControlCenter: false
     property bool animVisible: false
 
-    // Wi-Fi State
     property bool wifiEnabled: true
     property string wifiSsid: ""
     property int wifiSignal: 0
     property string wifiIcon: "󰤨"
 
-    // Toggle State
     property bool bluetoothEnabled: false
     property bool dndEnabled: false
 
-    // Brightness (no native service; driven by brightnessctl)
     property real brightnessLevel: 1.00
 
-    // ----------------------------------------------------
-    // AUDIO (Pipewire)
-    // ----------------------------------------------------
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
     }
@@ -510,10 +695,11 @@ Scope {
         if (source?.ready && source.audio) source.audio.muted = !source.audio.muted;
     }
 
-    // ----------------------------------------------------
-    // BATTERY (UPower)
-    // ----------------------------------------------------
-    readonly property UPowerDevice battery: UPower.displayDevice
+    readonly property UPowerDevice battery: {
+        if (UPower.displayDevice) return UPower.displayDevice;
+        if (UPower.devices.values.length > 0) return UPower.devices.values[0];
+        return null;
+    }
     readonly property int batteryPercentage: {
         let p = battery?.percentage ?? 1.0;
         return Math.round(p <= 1.0 ? p * 100 : p);
@@ -525,16 +711,19 @@ Scope {
     readonly property string batteryIcon: {
         if (root.batteryCharging) return "󰂄";
         let pct = root.batteryPercentage;
-        if (pct >= 90) return "";
-        if (pct >= 65) return "";
-        if (pct >= 35) return "";
-        if (pct >= 15) return "";
-        return "";
+        if (pct >= 95) return "󰁹";
+        if (pct >= 90) return "󰂂";
+        if (pct >= 80) return "󰂁";
+        if (pct >= 70) return "󰂀";
+        if (pct >= 60) return "󰁿";
+        if (pct >= 50) return "󰁾";
+        if (pct >= 40) return "󰁽";
+        if (pct >= 30) return "󰁼";
+        if (pct >= 20) return "󰁻";
+        if (pct >= 10) return "󰁺";
+        return "󰂃";
     }
 
-    // ----------------------------------------------------
-    // POWER PROFILE (PowerProfiles)
-    // ----------------------------------------------------
     readonly property string activeProfile: {
         switch (PowerProfiles.profile) {
         case PowerProfile.PowerSaver:  return "power-saver";
@@ -550,9 +739,6 @@ Scope {
         }
     }
 
-    // ----------------------------------------------------
-    // WI-FI
-    // ----------------------------------------------------
     function updateWifiIcon() {
         if (!root.wifiEnabled) {
             root.wifiIcon = "󰖪";
@@ -631,9 +817,6 @@ Scope {
         actionProc.exec(["nmcli", "radio", "wifi", root.wifiEnabled ? "on" : "off"]);
     }
 
-    // ----------------------------------------------------
-    // BRIGHTNESS / BLUETOOTH
-    // ----------------------------------------------------
     Process {
         id: getBrightProc
         running: true
@@ -677,9 +860,6 @@ Scope {
         }
     }
 
-    // ----------------------------------------------------
-    // EXTERNAL SETTINGS APPS
-    // ----------------------------------------------------
     Process { id: actionProc }
     Process { id: appLaunchProc }
 
@@ -699,9 +879,6 @@ Scope {
         appLaunchProc.exec(["sh", "-c", "pavucontrol || helvum || foot -e alsamixer"]);
     }
 
-    // ----------------------------------------------------
-    // NOTIFICATION SERVER & MODELS
-    // ----------------------------------------------------
     ListModel { id: notifHistoryModel }
     ListModel { id: activeToastModel }
     readonly property int defaultToastTimeout: 5000
@@ -844,9 +1021,6 @@ Scope {
         activeToastModel.clear();
     }
 
-    // ----------------------------------------------------
-    // WINDOW INSTANCES
-    // ----------------------------------------------------
     TopBar {
         id: topBar
         rootState: root
@@ -1191,7 +1365,6 @@ PopupWindow {
                 }
             }
 
-            // --- SESSION CONTROLS ---
             Rectangle {
                 width: parent.width
                 height: 1
@@ -1386,23 +1559,22 @@ PanelWindow {
         right: true
     }
     margins {
-        top: 10
-        left: 20
-        right: 20
+        top: 4
+        left: 10
+        right: 10
     }
     
     implicitHeight: 36
     color: "transparent"
-    exclusiveZone: 46 
+    exclusiveZone: 40 
 
     Rectangle {
         anchors.fill: parent
         color: "#2e3440" 
-        radius: 18
+        radius: 10
         border.color: Qt.rgba(0.50, 0.63, 0.75, 0.3)
-        border.width: 1
+        border.width: 0
 
-        // LEFT: Hyprland Workspaces
         Row {
             anchors {
                 left: parent.left
@@ -1442,7 +1614,6 @@ PanelWindow {
             }
         }
 
-        // CENTER: Clock
         Text {
             id: clockText
             anchors.centerIn: parent
@@ -1457,7 +1628,6 @@ PanelWindow {
             }
         }
 
-        // RIGHT: Status Modules
         Row {
             anchors {
                 right: parent.right
@@ -1716,7 +1886,7 @@ Rectangle {
 
 ---
 
-## Phase 8: Thunar File Manager D-Bus Integration
+## Phase 9: Thunar File Manager D-Bus Integration
 
 ```bash
 xdg-mime default thunar.desktop inode/directory
@@ -1735,5 +1905,6 @@ Exec=/usr/bin/thunar --sm-client-disable
 
 ```bash
 update-desktop-database ~/.local/share/applications
+```[cite: 2]
 
 ```
