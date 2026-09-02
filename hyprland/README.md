@@ -79,7 +79,6 @@ sudo dnf install \
     xdg-desktop-portal \
     xdg-desktop-portal-hyprland \
     xdg-desktop-portal-gtk \
-    wlsunset \
     papirus-icon-theme
 
 ```

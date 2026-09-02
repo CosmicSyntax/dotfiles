@@ -4,12 +4,14 @@
 
 -- 1. Define Laptop Panel Settings (Single Source of Truth)
 local eDP1_config = {
-	output   = "eDP-1",
-	mode     = "2560x1600@60",
-	position = "0x1440",
-	scale    = "1.25",
-	bitdepth = 10,
-	cm       = "auto",
+	output        = "eDP-1",
+	mode          = "2560x1600@60",
+	position      = "0x1440",
+	scale         = "1.25",
+	bitdepth      = 10,
+	cm            = "hdr",
+	sdrbrightness = 1.2,
+	sdrsaturation = 0.98,
 }
 
 -- 2. Read hardware states from the Linux kernel
@@ -39,12 +41,14 @@ end
 
 -- External Samsung OLED (Always On)
 hl.monitor({
-	output   = "DP-1",
-	mode     = "highres@highrr",
-	position = "0x0",
-	scale    = "1.0",
-	bitdepth = 10,
-	cm       = "auto",
+	output        = "DP-1",
+	mode          = "highres@highrr",
+	position      = "0x0",
+	scale         = "1.0",
+	bitdepth      = 10,
+	cm            = "hdr",
+	sdrbrightness = 1.2,
+	sdrsaturation = 0.98,
 })
 
 -- Default Applications & Variables
@@ -74,17 +78,17 @@ hl.on("hyprland.start", function()
 	-- 2. Core daemons
 	hl.exec_cmd("systemctl --user start hypridle.service")
 	hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
+	hl.exec_cmd("systemctl --user start hyprsunset.service")
 	hl.exec_cmd("uwsm app -- quickshell")
 
 	-- Start Walker's backend and frontend daemon
 	hl.exec_cmd("uwsm app -- elephant")
-    hl.exec_cmd("uwsm app -- walker --gapplication-service")
+	hl.exec_cmd("uwsm app -- walker --gapplication-service")
 
 	-- 3. Background apps
 	hl.exec_cmd("uwsm app -- hyprpaper")
 	hl.exec_cmd("uwsm app -- nm-applet --indicator")
 	hl.exec_cmd("uwsm app -- blueman-applet")
-	hl.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh")
 
 	-- 4. GTK Theme Properties
 	hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
@@ -172,8 +176,6 @@ local app_binds = {
 	{ mainMod .. " + F",         hl.dsp.window.fullscreen({ mode = 1 }) },
 	{ mainMod .. " + SHIFT + F", hl.dsp.window.fullscreen({ mode = 0 }) },
 	{ mainMod .. " + SHIFT + P", hl.dsp.window.float({ action = "toggle" }) },
-	-- Toggle Night Light (Kills wlsunset if running, restarts dynamic script if not)
-	{ mainMod .. " + SHIFT + N", hl.dsp.exec_cmd("~/.config/hypr/scripts/dynamic-nightlight.sh") },
 	-- { mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock") },
 
 	-- Graceful session termination via UWSM
