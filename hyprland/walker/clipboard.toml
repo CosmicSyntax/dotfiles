@@ -1,0 +1,6 @@
+# Keep a strict, low item limit (e.g., only the last 30 items)
+max_entries = 30
+
+# Do not cache copied image data in RAM, only track text strings
+track_images = false
+

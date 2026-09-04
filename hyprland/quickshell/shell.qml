@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
+import Quickshell.Networking
 import "."
 
 Scope {
@@ -13,15 +14,9 @@ Scope {
     // Initialize states on startup
     Component.onCompleted: {
         updateBrightness();
-        updateWifiState();
+        // Wi-Fi updates natively now, so we only manually poll Bluetooth/Brightness on startup
         updateBluetooth();
     }
-
-    // Wi-Fi State
-    property bool wifiEnabled: true
-    property string wifiSsid: ""
-    property int wifiSignal: 0
-    property string wifiIcon: "󰤯"
 
     // Toggle State
     property bool bluetoothEnabled: false
@@ -45,7 +40,6 @@ Scope {
 
     readonly property PwNode sink: Pipewire.defaultAudioSink
     readonly property PwNode source: Pipewire.defaultAudioSource
-
     readonly property real volumeLevel: sink?.audio?.volume ?? 0.0
     readonly property bool volumeMuted: sink?.audio?.muted ?? false
     readonly property bool micMuted: source?.audio?.muted ?? false
@@ -72,9 +66,10 @@ Scope {
         let p = battery?.percentage ?? 1.0;
         return Math.round(p <= 1.0 ? p * 100 : p);
     }
+    
     readonly property bool batteryCharging: battery?.state === UPowerDeviceState.Charging || battery?.state === UPowerDeviceState.PendingCharge
     readonly property bool batteryFull: battery?.state === UPowerDeviceState.FullyCharged
-
+    
     readonly property string batteryIcon: {
         if (root.batteryCharging) return "󰂄"
         let pct = root.batteryPercentage;
@@ -88,7 +83,7 @@ Scope {
         if (pct >= 30) return "󰁼"
         if (pct >= 20) return "󰁻"
         if (pct >= 10) return "󰁺"
-        return "󰂎"
+        return "󰂃"
     }
 
     // ----------------------------------------------------
@@ -110,27 +105,28 @@ Scope {
         }
     }
 
-	// ----------------------------------------------------
+    // ----------------------------------------------------
     // NIGHT SHIFT (hyprsunset)
     // ----------------------------------------------------
     Process {
         id: getNightShiftProc
         stdout: SplitParser {
-            onRead: data => root.nightShiftEnabled = (data.trim() === "on")
+			onRead: data => root.nightShiftEnabled = (data.trim() === "on");
         }
     }
 
     function updateNightShift() {
-        getNightShiftProc.exec(["sh", "-c", "hyprctl hyprsunset temperature 2>/dev/null | grep -qE '[0-9]+' && echo on || echo off"]);
+        getNightShiftProc.exec(["sh", "-c", "hyprctl hyprsunset temperature 2>/dev/null | awk '$1 < 6000 {found=1} END {exit !found}' && echo on || echo off"]);
     }
 
     function toggleNightShift() {
         let targetState = !root.nightShiftEnabled;
         root.nightShiftEnabled = targetState;
         if (targetState) {
-            runSystemCommand("hyprctl hyprsunset temperature 5500");
+            runSystemCommand("hyprctl hyprsunset temperature 4500");
         } else {
-            runSystemCommand("hyprctl hyprsunset identity");
+            runSystemCommand("hyprctl hyprsunset temperature 6000 && hyprctl hyprsunset identity");
+            //runSystemCommand("hyprctl hyprsunset identity");
         }
     }
 
@@ -147,13 +143,39 @@ Scope {
     }
 
     // ----------------------------------------------------
-    // WI-FI (Event-driven via nmcli monitor)
+    // WI-FI (Event-driven via Native Quickshell.Networking)
     // ----------------------------------------------------
+    property var wifiAdapter: {
+        let devs = Networking.devices.values;
+        for (let i = 0; i < devs.length; i++) {
+            if (devs[i].type === DeviceType.Wifi) return devs[i];
+        }
+        return null;
+    }
+
+    property var activeWifiConnection: {
+        if (!wifiAdapter) return null;
+        let nets = wifiAdapter.networks.values;
+        for (let i = 0; i < nets.length; i++) {
+            if (nets[i].connected) return nets[i];
+        }
+        return null;
+    }
+
+    property bool wifiEnabled: Networking.wifiEnabled
+    property string wifiSsid: activeWifiConnection ? activeWifiConnection.name : ""
+    property int wifiSignal: activeWifiConnection ? Math.round(activeWifiConnection.signalStrength * 100) : 0
+    property string wifiIcon: "󰖪"
+
+    onWifiEnabledChanged: updateWifiIcon()
+    onWifiSsidChanged: updateWifiIcon()
+    onWifiSignalChanged: updateWifiIcon()
+
     function updateWifiIcon() {
         if (!root.wifiEnabled) {
-            root.wifiIcon = "󰤭"
+            root.wifiIcon = "󰖪" 
         } else if (root.wifiSsid === "" || root.wifiSignal === 0) {
-            root.wifiIcon = "󰤯"
+            root.wifiIcon = "󰤯" 
         } else if (root.wifiSignal >= 75) {
             root.wifiIcon = "󰤨"
         } else if (root.wifiSignal >= 50) {
@@ -165,59 +187,8 @@ Scope {
         }
     }
 
-    Process {
-        id: checkWifiRadioProc
-        stdout: SplitParser {
-            onRead: data => {
-                if (data.trim() === "disabled") {
-                    root.wifiEnabled = false;
-                    root.wifiSsid = "";
-                    root.wifiSignal = 0;
-                    root.updateWifiIcon();
-                } else {
-                    root.wifiEnabled = true;
-                    // Run a light grep to grab only the active connection, avoiding awk entirely
-                    getWifiProc.exec(["sh", "-c", "nmcli -t -f ACTIVE,SSID,SIGNAL dev wifi | grep '^yes:' || echo 'none'"]);
-                }
-            }
-        }
-    }
-
-    Process {
-        id: getWifiProc
-        stdout: SplitParser {
-            onRead: data => {
-                let line = data.trim();
-                if (line.startsWith("yes:")) {
-                    let parts = line.split(":");
-                    root.wifiSignal = parseInt(parts.pop()) || 80; // Pop signal off the end
-                    parts.shift(); // Remove the "yes" prefix
-                    root.wifiSsid = parts.join(":"); // Rejoin in case the SSID contains colons
-                } else {
-                    root.wifiSsid = "";
-                    root.wifiSignal = 0;
-                }
-                root.updateWifiIcon();
-            }
-        }
-    }
-
-    function updateWifiState() {
-        checkWifiRadioProc.exec(["nmcli", "-t", "radio", "wifi"]);
-    }
-
-    Process {
-        id: nmMonitorProc
-        running: true
-        command: ["nmcli", "monitor"]
-        stdout: SplitParser {
-            onRead: _ => { updateWifiState(); }
-        }
-    }
-
     function toggleWifi() {
-        root.wifiEnabled = !root.wifiEnabled;
-        actionProc.exec(["nmcli", "radio", "wifi", root.wifiEnabled ? "on" : "off"]);
+        Networking.wifiEnabled = !Networking.wifiEnabled;
     }
 
     // ----------------------------------------------------
@@ -227,7 +198,6 @@ Scope {
         id: getBrightProc
         stdout: SplitParser {
             onRead: data => {
-                // parses standard output: "intel_backlight,backlight,12000,50%,240000"
                 let parts = data.trim().split(',');
                 if (parts.length >= 4) {
                     let val = parseFloat(parts[3].replace('%', ''));
@@ -240,7 +210,6 @@ Scope {
     Process {
         id: brightMonitorProc
         running: true
-        // stdbuf forces line-buffering so udev events instantly trigger the UI update
         command: ["stdbuf", "-oL", "udevadm", "monitor", "--subsystem-match=backlight"]
         stdout: SplitParser {
             onRead: _ => { root.updateBrightness(); }
@@ -252,10 +221,11 @@ Scope {
     }
 
     Process { id: setBrightProc }
-
+    
     function setBrightness(val) {
         root.brightnessLevel = Math.min(Math.max(val, 0.05), 1.0);
-        setBrightProc.exec(["brightnessctl", "set", `${Math.round(root.brightnessLevel * 100)}%`]);
+        // setBrightProc.exec(["brightnessctl", "set", `${Math.round(root.brightnessLevel * 100)}%`]);
+		setBrightProc.exec(["brightnessctl", "-d", "intel_backlight", "set", `${Math.round(root.brightnessLevel * 100)}%`]);
     }
 
     // ----------------------------------------------------
@@ -278,7 +248,7 @@ Scope {
             onRead: _ => { updateBluetooth(); }
         }
     }
-    
+         
     function updateBluetooth() {
         getBtProc.exec(["bluetoothctl", "show"]);
     }
@@ -293,7 +263,7 @@ Scope {
     // ----------------------------------------------------
     Process { id: actionProc }
     Process { id: appLaunchProc }
-
+    
     function runSystemCommand(cmd) { actionProc.exec(["sh", "-c", cmd]); }
     function openWifiSettings() { appLaunchProc.exec(["sh", "-c", "nm-connection-editor || foot -e nmtui"]); }
     function openBluetoothSettings() { appLaunchProc.exec(["sh", "-c", "blueman-manager || blueberry || foot -e bluetoothctl"]); }
@@ -304,31 +274,29 @@ Scope {
     // ----------------------------------------------------
     ListModel { id: notifHistoryModel }
     ListModel { id: activeToastModel }
-
+    
     readonly property int defaultToastTimeout: 5000
-
+    
     NotificationServer {
         id: notifServer
         actionsSupported: true
         imageSupported: true
-
         onNotification: notif => {
             if (!notif) return;
             notif.tracked = true;
-
             let summaryText = notif.summary ? notif.summary.toString() : "Notification";
             let bodyText = notif.body ? notif.body.toString() : "";
             let timeStr = Qt.formatTime(new Date(), "hh:mm");
             let nId = notif.id;
             let dEntry = notif.desktopEntry ? notif.desktopEntry.toString() : "";
-
             let timeoutMs = root.defaultToastTimeout;
+            
             if (notif.urgency === NotificationUrgency.Critical) {
                 timeoutMs = 0;
             } else if (notif.expireTimeout > 0) {
                 timeoutMs = notif.expireTimeout * 1000;
             }
-
+            
             notifHistoryModel.insert(0, {
                 "notifId": nId,
                 "summary": summaryText,
@@ -336,7 +304,7 @@ Scope {
                 "time": timeStr,
                 "appName": dEntry
             });
-
+            
             if (!root.dndEnabled) {
                 activeToastModel.insert(0, {
                     "notifId": nId,
@@ -386,7 +354,6 @@ Scope {
                 }
             }
             if (!chosen && n.actions.length > 0) chosen = n.actions[0];
-
             if (chosen) {
                 chosen.invoke();
                 actionFired = true;
@@ -394,7 +361,7 @@ Scope {
                 n.dismiss();
             }
         }
-
+        
         if (!actionFired && appName && appName !== "") {
             let cleanName = appName.replace(".desktop", "");
             appLaunchProc.exec([
@@ -452,22 +419,23 @@ Scope {
         delegate: Scope {
             id: screenScope
             required property var modelData
+            
             property bool showControlCenter: false
-            property bool animVisible: false
-
-			onShowControlCenterChanged: {
+            property bool animVisible: false 
+            
+            onShowControlCenterChanged: {
                 if (showControlCenter) {
                     root.updateNightShift();
                 }
             }
-
+            
             TopBar {
                 id: topBar
                 rootState: root
                 screenState: screenScope
                 screen: modelData
             }
-
+            
             PanelWindow {
                 id: dismissBackdrop
                 screen: modelData
@@ -479,7 +447,7 @@ Scope {
                     onClicked: screenScope.showControlCenter = false
                 }
             }
-
+            
             ControlCenter {
                 id: controlCenter
                 rootState: root
@@ -487,7 +455,7 @@ Scope {
                 topBarWindow: topBar
                 historyModel: notifHistoryModel
             }
-
+            
             NotificationToasts {
                 id: notificationToasts
                 rootState: root

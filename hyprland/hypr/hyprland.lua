@@ -4,14 +4,14 @@
 
 -- 1. Define Laptop Panel Settings (Single Source of Truth)
 local eDP1_config = {
-	output        = "eDP-1",
-	mode          = "2560x1600@60",
-	position      = "0x1440",
-	scale         = "1.25",
-	bitdepth      = 10,
-	cm            = "hdr",
-	sdrbrightness = 1.2,
-	sdrsaturation = 0.98,
+	output   = "eDP-1",
+	mode     = "2560x1600@60",
+	position = "0x1440",
+	scale    = "1.25",
+	bitdepth = 10,
+	cm       = "auto",
+	-- sdrbrightness = 1.2,
+	-- sdrsaturation = 0.98,
 }
 
 -- 2. Read hardware states from the Linux kernel
@@ -52,7 +52,7 @@ hl.monitor({
 })
 
 -- Default Applications & Variables
-local terminal    = "uwsm app -- alacritty"
+local terminal    = "uwsm app -- kitty"
 local menu        = "walker"
 local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
 local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
@@ -79,7 +79,7 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd("systemctl --user start hypridle.service")
 	hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
 	hl.exec_cmd("systemctl --user start hyprsunset.service")
-	hl.exec_cmd("uwsm app -- quickshell")
+	hl.exec_cmd("uwsm app -- /home/dchoi/.local/bin/quickshell")
 
 	-- Start Walker's backend and frontend daemon
 	hl.exec_cmd("uwsm app -- elephant")
@@ -120,11 +120,11 @@ hl.config({
 	},
 
 	decoration = {
-		rounding         = 5,
+		rounding         = 8,
 		active_opacity   = 1.0,
 		inactive_opacity = 0.90,
 		shadow           = {
-			enabled      = true,
+			enabled      = false,
 			range        = 12,
 			render_power = 2,
 			color        = 0xee1a1e24,
@@ -269,8 +269,8 @@ local media_keys = {
 	{ "XF86AudioLowerVolume",  "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-" },
 	{ "XF86AudioMute",         "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
 	{ "XF86AudioMicMute",      "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
-	{ "XF86MonBrightnessUp",   "brightnessctl set 5%+" },
-	{ "XF86MonBrightnessDown", "brightnessctl set 5%-" },
+	{ "XF86MonBrightnessUp",   "brightnessctl -d intel_backlight set 5%+" },
+	{ "XF86MonBrightnessDown", "brightnessctl -d intel_backlight set 5%-" },
 	{ "XF86AudioNext",         "playerctl next" },
 	{ "XF86AudioPrev",         "playerctl previous" },
 	{ "XF86AudioPlay",         "playerctl play-pause" },

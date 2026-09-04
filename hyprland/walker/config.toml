@@ -9,7 +9,8 @@ weight = 100
 weight = 90
 
 [providers]
-default = ["desktopapplications", "runner", "files", "clipboard"]
+default = ["desktopapplications"]
+# default = ["desktopapplications", "runner", "files", "clipboard"]
 
 [[providers.prefixes]]
 prefix = "/"
@@ -18,3 +19,7 @@ provider = "files"
 [[providers.prefixes]]
 prefix = ":"
 provider = "clipboard"
+
+[[providers.prefixes]]
+prefix = "!"
+provider = "runner"

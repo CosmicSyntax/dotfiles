@@ -322,14 +322,16 @@ PopupWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 35
                 Repeater {
-                    model: [
-                        { icon: "󰌾", action: "pidof hyprlock || hyprlock", color: "#eceff4" },
-                        { icon: "󰤄", action: "systemctl suspend", color: "#eceff4" },
-                        { icon: "󰍃", action: "uwsm stop", color: "#eceff4" },
-                        { icon: "󰜉", action: "systemctl reboot", color: "#eceff4" },
-                        { icon: "󰐥", action: "systemctl poweroff", color: "#bf616a" }
-                    ]
-                    delegate: Rectangle {
+					model: [
+
+						{ icon: "󰌾", action: "pidof hyprlock || uwsm app -- hyprlock", color: "#eceff4" },
+						{ icon: "󰤄", action: "systemctl suspend", color: "#eceff4" },
+						{ icon: "󰍃", action: "uwsm app -- hyprshutdown -t 'Logging out...' --post-cmd 'uwsm stop'", color: "#eceff4" },
+						{ icon: "󰜉", action: "uwsm app -- hyprshutdown -t 'Restarting...' --post-cmd 'systemctl reboot'", color: "#eceff4" },
+						{ icon: "󰐥", action: "uwsm app -- hyprshutdown -t 'Shutting down...' --post-cmd 'systemctl poweroff'", color: "#bf616a" }
+
+					]
+					delegate: Rectangle {
                         required property var modelData
                         width: 44
                         height: 44

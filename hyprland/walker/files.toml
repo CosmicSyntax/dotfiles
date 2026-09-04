@@ -1,0 +1,8 @@
+paths = ["/home/dchoi/Documents", "/home/dchoi/Downloads"]
+
+# Restrict the traversal depth (e.g., max 3 folders deep) to save RAM
+max_depth = 3
+
+# Explicitly ignore memory-hogging folders
+ignored_directories = [".git", "node_modules", ".cache", "target", "build"]
+
