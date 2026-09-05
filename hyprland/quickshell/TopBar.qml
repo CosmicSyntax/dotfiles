@@ -77,7 +77,7 @@ PanelWindow {
 			color: "#eceff4"
 			font.pixelSize: 15
 			font.bold: true
-			font.family: "GoogleSansM Nerd Font"
+			font.family: "GoogleSansCode Nerd Font"
 			text: Qt.formatDateTime(clock.date, "hh:mm | ddd, MMM d")
 
 			SystemClock {
@@ -101,7 +101,7 @@ PanelWindow {
 				text: "󰂛"
 				color: "#ebcb8b"
 				font.pixelSize: 14
-				font.family: "GoogleSansM Nerd Font"
+				font.family: "GoogleSansCode Nerd Font"
 				anchors.verticalCenter: parent.verticalCenter
 			}
 
@@ -119,7 +119,7 @@ PanelWindow {
 					text: `${rootState.volumeMuted ? "󰝟" : "󰕾"} ${Math.round(rootState.volumeLevel * 100)}%`
 					color: rootState.volumeMuted ? "#4c566a" : "#eceff4"
 					font.pixelSize: 14
-					font.family: "GoogleSansM Nerd Font"
+					font.family: "GoogleSansCode Nerd Font"
 				}
 			}
 
@@ -132,7 +132,7 @@ PanelWindow {
 					text: rootState.wifiIcon
 					color: rootState.wifiEnabled ? "#eceff4" : "#4c566a"
 					font.pixelSize: 14
-					font.family: "GoogleSansM Nerd Font"
+					font.family: "GoogleSansCode Nerd Font"
 					anchors.verticalCenter: parent.verticalCenter
 				}
 
@@ -141,7 +141,7 @@ PanelWindow {
 					text: `${rootState.wifiSsid} ${rootState.wifiSignal}%`
 					color: "#eceff4"
 					font.pixelSize: 13
-					font.family: "GoogleSansM Nerd Font"
+					font.family: "GoogleSansCode Nerd Font"
 					anchors.verticalCenter: parent.verticalCenter
 				}
 			}
@@ -151,7 +151,7 @@ PanelWindow {
 				text: `${rootState.batteryIcon} ${rootState.batteryPercentage}%`
 				color: rootState.batteryPercentage <= 20 && !rootState.batteryCharging ? "#bf616a" : (rootState.batteryCharging ? "#a3be8c" : "#eceff4")
 				font.pixelSize: 14
-				font.family: "GoogleSansM Nerd Font"
+				font.family: "GoogleSansCode Nerd Font"
 				anchors.verticalCenter: parent.verticalCenter
 			}
 
@@ -168,7 +168,7 @@ PanelWindow {
 					text: screenState.showControlCenter ? "󰅖" : "󰍜"
 					color: "#81a1c1"
 					font.pixelSize: 18
-					font.family: "GoogleSansM Nerd Font"
+					font.family: "GoogleSansCode Nerd Font"
 				}
 
 				MouseArea {

@@ -26,7 +26,7 @@ Rectangle {
             text: toggleRoot.icon
             color: toggleRoot.active ? toggleRoot.activeColor : "#d8dee9"
             font.pixelSize: 20
-            font.family: "GoogleSansM Nerd Font"
+            font.family: "GoogleSansCode Nerd Font"
             anchors.horizontalCenter: parent.horizontalCenter 
         }
 
@@ -35,7 +35,7 @@ Rectangle {
             color: "#eceff4"
             font.pixelSize: 13
             font.bold: true
-            font.family: "GoogleSansM Nerd Font"
+            font.family: "GoogleSansCode Nerd Font"
             anchors.horizontalCenter: parent.horizontalCenter 
         }
     }

@@ -68,7 +68,7 @@ PanelWindow {
                             text: "󰂚"
                             color: "#81a1c1"
                             font.pixelSize: 18
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                         }
                     }
 
@@ -83,7 +83,7 @@ PanelWindow {
                             color: "#eceff4"
                             font.pixelSize: 13
                             font.bold: true
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                             // Apps send markup regardless of advertised caps.
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
@@ -94,7 +94,7 @@ PanelWindow {
                             text: toastCard.model.body || ""
                             color: "#d8dee9"
                             font.pixelSize: 12
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
                             maximumLineCount: 2

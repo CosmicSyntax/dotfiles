@@ -26,7 +26,7 @@ Rectangle {
         text: sliderRoot.icon
         color: sliderRoot.iconColor
         font.pixelSize: 22
-        font.family: "GoogleSansM Nerd Font"
+        font.family: "GoogleSansCode Nerd Font"
         anchors.left: parent.left
         anchors.leftMargin: 15
         anchors.verticalCenter: parent.verticalCenter
@@ -43,7 +43,7 @@ Rectangle {
             color: "#eceff4"
             font.pixelSize: 13
             font.bold: true
-            font.family: "GoogleSansM Nerd Font"
+            font.family: "GoogleSansCode Nerd Font"
         }
 
         Rectangle {
@@ -99,6 +99,6 @@ Rectangle {
         anchors.rightMargin: 15
         anchors.top: parent.top
         anchors.topMargin: 15
-        font.family: "GoogleSansM Nerd Font"
+        font.family: "GoogleSansCode Nerd Font"
     }
 }

@@ -62,8 +62,8 @@ PopupWindow {
             
             Column {
                 spacing: 4
-                Text { text: "Control Center"; color: "#eceff4"; font.pixelSize: 18; font.bold: true; font.family: "GoogleSansM Nerd Font" }
-                Text { text: "Focused system controls"; color: "#d8dee9"; font.pixelSize: 13; font.family: "GoogleSansM Nerd Font" }
+                Text { text: "Control Center"; color: "#eceff4"; font.pixelSize: 18; font.bold: true; font.family: "GoogleSansCode Nerd Font" }
+                Text { text: "Focused system controls"; color: "#d8dee9"; font.pixelSize: 13; font.family: "GoogleSansCode Nerd Font" }
             }
                          
             Row {
@@ -172,7 +172,7 @@ PopupWindow {
                             color: rootState.activeProfile === modelData.id ? "#2e3440" : "#d8dee9"
                             font.pixelSize: 13
                             font.bold: true
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                         }
                         
                         MouseArea {
@@ -200,7 +200,7 @@ PopupWindow {
                     color: "#eceff4"
                     font.pixelSize: 14
                     font.bold: true
-                    font.family: "GoogleSansM Nerd Font"
+                    font.family: "GoogleSansCode Nerd Font"
                 }
                 Text {
                     anchors.right: parent.right
@@ -210,7 +210,7 @@ PopupWindow {
                     color: "#81a1c1"
                     font.pixelSize: 12
                     font.bold: true
-                    font.family: "GoogleSansM Nerd Font"
+                    font.family: "GoogleSansCode Nerd Font"
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
@@ -247,7 +247,7 @@ PopupWindow {
                             text: "󰂚"
                             color: "#81a1c1"
                             font.pixelSize: 16
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Column {
@@ -262,7 +262,7 @@ PopupWindow {
                                     color: "#eceff4"
                                     font.pixelSize: 12
                                     font.bold: true
-                                    font.family: "GoogleSansM Nerd Font"
+                                    font.family: "GoogleSansCode Nerd Font"
                                     elide: Text.ElideRight
                                     width: 370
                                 }
@@ -270,7 +270,7 @@ PopupWindow {
                                     text: model.time || ""
                                     color: "#4c566a"
                                     font.pixelSize: 10
-                                    font.family: "GoogleSansM Nerd Font"
+                                    font.family: "GoogleSansCode Nerd Font"
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
@@ -279,7 +279,7 @@ PopupWindow {
                                 textFormat: Text.PlainText
                                 color: "#d8dee9"
                                 font.pixelSize: 11
-                                font.family: "GoogleSansM Nerd Font"
+                                font.family: "GoogleSansCode Nerd Font"
                                 elide: Text.ElideRight
                                 width: parent.width
                             }
@@ -288,7 +288,7 @@ PopupWindow {
                             text: "󰅖"
                             color: "#4c566a"
                             font.pixelSize: 14
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                             anchors.verticalCenter: parent.verticalCenter
                             MouseArea {
                                 anchors.fill: parent
@@ -308,7 +308,7 @@ PopupWindow {
                     text: "No notifications"
                     color: "#4c566a"
                     font.pixelSize: 13
-                    font.family: "GoogleSansM Nerd Font"
+                    font.family: "GoogleSansCode Nerd Font"
                 }
             }
             
@@ -345,7 +345,7 @@ PopupWindow {
                             text: modelData.icon
                             color: modelData.color
                             font.pixelSize: 22
-                            font.family: "GoogleSansM Nerd Font"
+                            font.family: "GoogleSansCode Nerd Font"
                         }
                         
                         MouseArea {

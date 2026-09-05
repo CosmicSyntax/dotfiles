@@ -46,16 +46,16 @@ hl.monitor({
 	position      = "0x0",
 	scale         = "1.0",
 	bitdepth      = 10,
-	cm            = "hdr",
-	sdrbrightness = 1.2,
-	sdrsaturation = 0.98,
+	cm            = "auto",
+	-- sdrbrightness = 1.2,
+	-- sdrsaturation = 0.98,
 })
 
 -- Default Applications & Variables
-local terminal    = "uwsm app -- kitty"
+local terminal    = "alacritty"
 local menu        = "walker"
-local fileManager = "uwsm app -- env GTK_THEME=Adwaita:dark thunar"
-local browser     = "uwsm app -- flatpak run app.zen_browser.zen"
+local fileManager = "env GTK_THEME=Adwaita:dark thunar"
+local browser     = "flatpak run app.zen_browser.zen"
 local mainMod     = "SUPER"
 
 -- Environment Variables (Critical for Portals & Theming)
@@ -79,16 +79,16 @@ hl.on("hyprland.start", function()
 	hl.exec_cmd("systemctl --user start hypridle.service")
 	hl.exec_cmd("systemctl --user start hyprpolkitagent.service")
 	hl.exec_cmd("systemctl --user start hyprsunset.service")
-	hl.exec_cmd("uwsm app -- /home/dchoi/.local/bin/quickshell")
+	hl.exec_cmd("/home/dchoi/.local/bin/quickshell")
 
 	-- Start Walker's backend and frontend daemon
-	hl.exec_cmd("uwsm app -- elephant")
-	hl.exec_cmd("uwsm app -- walker --gapplication-service")
+	hl.exec_cmd("elephant")
+	hl.exec_cmd("walker --gapplication-service")
 
 	-- 3. Background apps
-	hl.exec_cmd("uwsm app -- hyprpaper")
-	hl.exec_cmd("uwsm app -- nm-applet --indicator")
-	hl.exec_cmd("uwsm app -- blueman-applet")
+	hl.exec_cmd("hyprpaper")
+	hl.exec_cmd("nm-applet --indicator")
+	hl.exec_cmd("blueman-applet")
 
 	-- 4. GTK Theme Properties
 	hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
