@@ -23,7 +23,7 @@ PopupWindow {
     Rectangle {
         id: popupContainer
         anchors.fill: parent
-        color: "#2e3440"
+        color: Theme.bgDark
         radius: 16
         border.color: Qt.rgba(0.50, 0.63, 0.75, 0.3)
         border.width: 1
@@ -62,8 +62,8 @@ PopupWindow {
             
             Column {
                 spacing: 4
-                Text { text: "Control Center"; color: "#eceff4"; font.pixelSize: 18; font.bold: true; font.family: "GoogleSansCode Nerd Font" }
-                Text { text: "Focused system controls"; color: "#d8dee9"; font.pixelSize: 13; font.family: "GoogleSansCode Nerd Font" }
+                Text { text: "Control Center"; color: Theme.fgMain; font.pixelSize: 18; font.bold: true; font.family: Theme.fontFamily }
+                Text { text: "Focused system controls"; color: "#d8dee9"; font.pixelSize: 13; font.family: Theme.fontFamily }
             }
                          
             Row {
@@ -74,7 +74,7 @@ PopupWindow {
                                          
                     SliderCard {
                         icon: rootState.volumeMuted ? "󰝟" : (rootState.volumeLevel < 0.5 ? "󰖀" : "󰕾")
-                        iconColor: "#81a1c1"
+                        iconColor: Theme.accent
                         title: "Output volume"
                         value: rootState.volumeLevel
                         onValueChangedByUser: val => rootState.setVolume(val)
@@ -162,17 +162,17 @@ PopupWindow {
                         width: 195
                         height: 40
                         radius: 10
-                        color: rootState.activeProfile === modelData.id ? "#81a1c1" : "transparent"
-                        border.color: rootState.activeProfile === modelData.id ? "#81a1c1" : "#4c566a"
+                        color: rootState.activeProfile === modelData.id ? Theme.accent : "transparent"
+                        border.color: rootState.activeProfile === modelData.id ? Theme.accent : "#4c566a"
                         border.width: 1
                         
                         Text {
                             anchors.centerIn: parent
                             text: modelData.name
-                            color: rootState.activeProfile === modelData.id ? "#2e3440" : "#d8dee9"
+                            color: rootState.activeProfile === modelData.id ? Theme.bgDark : "#d8dee9"
                             font.pixelSize: 13
                             font.bold: true
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                         }
                         
                         MouseArea {
@@ -197,20 +197,20 @@ PopupWindow {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     text: `Notifications (${ccWindow.historyModel.count})`
-                    color: "#eceff4"
+                    color: Theme.fgMain
                     font.pixelSize: 14
                     font.bold: true
-                    font.family: "GoogleSansCode Nerd Font"
+                    font.family: Theme.fontFamily
                 }
                 Text {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     visible: ccWindow.historyModel.count > 0
                     text: "Clear All"
-                    color: "#81a1c1"
+                    color: Theme.accent
                     font.pixelSize: 12
                     font.bold: true
-                    font.family: "GoogleSansCode Nerd Font"
+                    font.family: Theme.fontFamily
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
@@ -230,7 +230,7 @@ PopupWindow {
                     width: historyListView.width
                     height: 52
                     radius: 10
-                    color: "#3b4252"
+                    color: Theme.bgLight
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
@@ -245,9 +245,9 @@ PopupWindow {
                         spacing: 10
                         Text {
                             text: "󰂚"
-                            color: "#81a1c1"
+                            color: Theme.accent
                             font.pixelSize: 16
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Column {
@@ -259,10 +259,10 @@ PopupWindow {
                                 Text {
                                     text: model.summary || ""
                                     textFormat: Text.PlainText
-                                    color: "#eceff4"
+                                    color: Theme.fgMain
                                     font.pixelSize: 12
                                     font.bold: true
-                                    font.family: "GoogleSansCode Nerd Font"
+                                    font.family: Theme.fontFamily
                                     elide: Text.ElideRight
                                     width: 370
                                 }
@@ -270,7 +270,7 @@ PopupWindow {
                                     text: model.time || ""
                                     color: "#4c566a"
                                     font.pixelSize: 10
-                                    font.family: "GoogleSansCode Nerd Font"
+                                    font.family: Theme.fontFamily
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
                             }
@@ -279,7 +279,7 @@ PopupWindow {
                                 textFormat: Text.PlainText
                                 color: "#d8dee9"
                                 font.pixelSize: 11
-                                font.family: "GoogleSansCode Nerd Font"
+                                font.family: Theme.fontFamily
                                 elide: Text.ElideRight
                                 width: parent.width
                             }
@@ -288,7 +288,7 @@ PopupWindow {
                             text: "󰅖"
                             color: "#4c566a"
                             font.pixelSize: 14
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                             anchors.verticalCenter: parent.verticalCenter
                             MouseArea {
                                 anchors.fill: parent
@@ -308,7 +308,7 @@ PopupWindow {
                     text: "No notifications"
                     color: "#4c566a"
                     font.pixelSize: 13
-                    font.family: "GoogleSansCode Nerd Font"
+                    font.family: Theme.fontFamily
                 }
             }
             
@@ -324,11 +324,11 @@ PopupWindow {
                 Repeater {
 					model: [
 
-						{ icon: "󰌾", action: "pidof hyprlock || uwsm app -- hyprlock", color: "#eceff4" },
-						{ icon: "󰤄", action: "systemctl suspend", color: "#eceff4" },
-						{ icon: "󰍃", action: "uwsm app -- hyprshutdown -t 'Logging out...' --post-cmd 'uwsm stop'", color: "#eceff4" },
-						{ icon: "󰜉", action: "uwsm app -- hyprshutdown -t 'Restarting...' --post-cmd 'systemctl reboot'", color: "#eceff4" },
-						{ icon: "󰐥", action: "uwsm app -- hyprshutdown -t 'Shutting down...' --post-cmd 'systemctl poweroff'", color: "#bf616a" }
+						{ icon: "󰌾", action: "pidof hyprlock || hyprlock", color: Theme.fgMain },
+						{ icon: "󰤄", action: "systemctl suspend", color: Theme.fgMain },
+						{ icon: "󰍃", action: "niri msg action quit", color: Theme.fgMain },
+						{ icon: "󰜉", action: "systemctl reboot", color: Theme.fgMain },
+						{ icon: "󰐥", action: "systemctl poweroff", color: "#bf616a" }
 
 					]
 					delegate: Rectangle {
@@ -345,7 +345,7 @@ PopupWindow {
                             text: modelData.icon
                             color: modelData.color
                             font.pixelSize: 22
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                         }
                         
                         MouseArea {

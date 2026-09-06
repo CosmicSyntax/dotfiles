@@ -1,4 +1,5 @@
 import QtQuick
+import ".."
 
 Rectangle {
     id: toggleRoot
@@ -6,7 +7,7 @@ Rectangle {
     property string icon: ""
     property string title: ""
     property bool active: false
-    property color activeColor: "#81a1c1"
+    property color activeColor: Theme.accent
     
     signal toggled()
     signal rightClicked()
@@ -14,7 +15,7 @@ Rectangle {
     width: 115
     height: 75
     radius: 12
-    color: active ? "#434c5e" : "#3b4252"
+    color: active ? "#434c5e" : Theme.bgLight
     border.color: active ? activeColor : "transparent"
     border.width: 1
 
@@ -26,16 +27,16 @@ Rectangle {
             text: toggleRoot.icon
             color: toggleRoot.active ? toggleRoot.activeColor : "#d8dee9"
             font.pixelSize: 20
-            font.family: "GoogleSansCode Nerd Font"
+            font.family: Theme.fontFamily
             anchors.horizontalCenter: parent.horizontalCenter 
         }
 
         Text { 
             text: toggleRoot.title
-            color: "#eceff4"
+            color: Theme.fgMain
             font.pixelSize: 13
             font.bold: true
-            font.family: "GoogleSansCode Nerd Font"
+            font.family: Theme.fontFamily
             anchors.horizontalCenter: parent.horizontalCenter 
         }
     }

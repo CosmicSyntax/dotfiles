@@ -1,0 +1,4 @@
+singleton Theme Theme.qml
+TopBar TopBar.qml
+ControlCenter ControlCenter.qml
+NotificationToasts NotificationToasts.qml

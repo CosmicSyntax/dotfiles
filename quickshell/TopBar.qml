@@ -1,6 +1,5 @@
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 
 PanelWindow {
 	id: topBarRoot
@@ -25,59 +24,47 @@ PanelWindow {
 
 	Rectangle {
 		anchors.fill: parent
-		color: "#2e3440"
+		color: Theme.bgDark
 		radius: 8
 		border.color: Qt.rgba(0.50, 0.63, 0.75, 0.3)
 		border.width: 0
 
-		// LEFT: Hyprland Workspaces
+		// LEFT: Niri Workspaces
 		Row {
 			anchors {
 				left: parent.left
 				leftMargin: 18
 				verticalCenter: parent.verticalCenter
 			}
-			spacing: 10
+			spacing: 15
 
 			Repeater {
-				model: [1, 2, 3, 4, 5]
-				delegate: Rectangle {
-					required property int modelData
+				model: niri.workspaces
 
-					readonly property bool isFocused: Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id === modelData
-					readonly property bool exists: {
-						for (let i = 0; i < Hyprland.workspaces.values.length; i++) {
-							if (Hyprland.workspaces.values[i].id === modelData) return true;
-						}
-						return false;
-					}
-
-					width: isFocused ? 20 : 8
-					height: 8
-					radius: 4
-					color: isFocused ? "#81a1c1" : (exists ? "#d8dee9" : "#4c566a")
-
-					Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-					Behavior on color { ColorAnimation { duration: 180 } }
-
+				Rectangle {
+					visible: index < 11
+					width: 10
+					height: 10
+					radius: 10
+					color: model.isActive ? Theme.accent : "#d8dee9"
 					MouseArea {
 						anchors.fill: parent
-						anchors.margins: -4
 						cursorShape: Qt.PointingHandCursor
-						onClicked: Hyprland.dispatch(`workspace ${modelData}`)
+						onClicked: niri.focusWorkspaceById(model.id)
 					}
 				}
 			}
+
 		}
 
 		// CENTER: Clock
 		Text {
 			id: clockText
 			anchors.centerIn: parent
-			color: "#eceff4"
+			color: Theme.fgMain
 			font.pixelSize: 15
 			font.bold: true
-			font.family: "GoogleSansCode Nerd Font"
+			font.family: Theme.fontFamily
 			text: Qt.formatDateTime(clock.date, "hh:mm | ddd, MMM d")
 
 			SystemClock {
@@ -101,7 +88,17 @@ PanelWindow {
 				text: "󰂛"
 				color: "#ebcb8b"
 				font.pixelSize: 14
-				font.family: "GoogleSansCode Nerd Font"
+				font.family: Theme.fontFamily
+				anchors.verticalCenter: parent.verticalCenter
+			}
+
+			// Caffeine Indicator
+			Text {
+				visible: rootState.caffeineEnabled
+				text: "󰅶"
+				color: "#ebcb8b"
+				font.pixelSize: 14
+				font.family: Theme.fontFamily
 				anchors.verticalCenter: parent.verticalCenter
 			}
 
@@ -117,9 +114,9 @@ PanelWindow {
 					id: volText
 					anchors.centerIn: parent
 					text: `${rootState.volumeMuted ? "󰝟" : "󰕾"} ${Math.round(rootState.volumeLevel * 100)}%`
-					color: rootState.volumeMuted ? "#4c566a" : "#eceff4"
+					color: rootState.volumeMuted ? "#4c566a" : Theme.fgMain
 					font.pixelSize: 14
-					font.family: "GoogleSansCode Nerd Font"
+					font.family: Theme.fontFamily
 				}
 			}
 
@@ -130,18 +127,18 @@ PanelWindow {
 
 				Text {
 					text: rootState.wifiIcon
-					color: rootState.wifiEnabled ? "#eceff4" : "#4c566a"
+					color: rootState.wifiEnabled ? Theme.fgMain : "#4c566a"
 					font.pixelSize: 14
-					font.family: "GoogleSansCode Nerd Font"
+					font.family: Theme.fontFamily
 					anchors.verticalCenter: parent.verticalCenter
 				}
 
 				Text {
 					visible: rootState.wifiEnabled && rootState.wifiSsid !== ""
 					text: `${rootState.wifiSsid} ${rootState.wifiSignal}%`
-					color: "#eceff4"
+					color: Theme.fgMain
 					font.pixelSize: 13
-					font.family: "GoogleSansCode Nerd Font"
+					font.family: Theme.fontFamily
 					anchors.verticalCenter: parent.verticalCenter
 				}
 			}
@@ -149,9 +146,9 @@ PanelWindow {
 			// Battery
 			Text {
 				text: `${rootState.batteryIcon} ${rootState.batteryPercentage}%`
-				color: rootState.batteryPercentage <= 20 && !rootState.batteryCharging ? "#bf616a" : (rootState.batteryCharging ? "#a3be8c" : "#eceff4")
+				color: rootState.batteryPercentage <= 20 && !rootState.batteryCharging ? "#bf616a" : (rootState.batteryCharging ? "#a3be8c" : Theme.fgMain)
 				font.pixelSize: 14
-				font.family: "GoogleSansCode Nerd Font"
+				font.family: Theme.fontFamily
 				anchors.verticalCenter: parent.verticalCenter
 			}
 
@@ -166,9 +163,9 @@ PanelWindow {
 				Text {
 					anchors.centerIn: parent
 					text: screenState.showControlCenter ? "󰅖" : "󰍜"
-					color: "#81a1c1"
+					color: Theme.accent
 					font.pixelSize: 18
-					font.family: "GoogleSansCode Nerd Font"
+					font.family: Theme.fontFamily
 				}
 
 				MouseArea {

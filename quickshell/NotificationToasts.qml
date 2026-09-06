@@ -39,7 +39,7 @@ PanelWindow {
                 width: toastCol.width
                 height: contentCol.implicitHeight + 24
                 radius: 12
-                color: "#2e3440"
+                color: Theme.bgDark
                 border.color: Qt.rgba(0.50, 0.63, 0.75, 0.4)
                 border.width: 1
 
@@ -60,15 +60,15 @@ PanelWindow {
                         width: 36
                         height: 36
                         radius: 8
-                        color: "#3b4252"
+                        color: Theme.bgLight
                         anchors.verticalCenter: parent.verticalCenter
 
                         Text {
                             anchors.centerIn: parent
                             text: "󰂚"
-                            color: "#81a1c1"
+                            color: Theme.accent
                             font.pixelSize: 18
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                         }
                     }
 
@@ -80,10 +80,10 @@ PanelWindow {
 
                         Text {
                             text: toastCard.model.summary || ""
-                            color: "#eceff4"
+                            color: Theme.fgMain
                             font.pixelSize: 13
                             font.bold: true
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                             // Apps send markup regardless of advertised caps.
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
@@ -94,7 +94,7 @@ PanelWindow {
                             text: toastCard.model.body || ""
                             color: "#d8dee9"
                             font.pixelSize: 12
-                            font.family: "GoogleSansCode Nerd Font"
+                            font.family: Theme.fontFamily
                             textFormat: Text.PlainText
                             elide: Text.ElideRight
                             maximumLineCount: 2

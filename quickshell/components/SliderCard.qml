@@ -1,10 +1,11 @@
 import QtQuick
+import ".."
 
 Rectangle {
     id: sliderRoot
 
     property string icon: ""
-    property color iconColor: "#81a1c1"
+    property color iconColor: Theme.accent
     property string title: ""
     property real value: 0.0
 
@@ -14,7 +15,7 @@ Rectangle {
     width: 240
     height: 75
     radius: 12
-    color: "#3b4252"
+    color: Theme.bgLight
 
     MouseArea {
         anchors.fill: parent
@@ -26,7 +27,7 @@ Rectangle {
         text: sliderRoot.icon
         color: sliderRoot.iconColor
         font.pixelSize: 22
-        font.family: "GoogleSansCode Nerd Font"
+        font.family: Theme.fontFamily
         anchors.left: parent.left
         anchors.leftMargin: 15
         anchors.verticalCenter: parent.verticalCenter
@@ -40,10 +41,10 @@ Rectangle {
 
         Text {
             text: sliderRoot.title
-            color: "#eceff4"
+            color: Theme.fgMain
             font.pixelSize: 13
             font.bold: true
-            font.family: "GoogleSansCode Nerd Font"
+            font.family: Theme.fontFamily
         }
 
         Rectangle {
@@ -99,6 +100,6 @@ Rectangle {
         anchors.rightMargin: 15
         anchors.top: parent.top
         anchors.topMargin: 15
-        font.family: "GoogleSansCode Nerd Font"
+        font.family: Theme.fontFamily
     }
 }

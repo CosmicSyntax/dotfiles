@@ -1,0 +1,188 @@
+spawn-at-startup "quickshell"
+spawn-at-startup "walker" "--gapplication-service"
+spawn-at-startup "elephant"
+spawn-at-startup "swaybg" "-i" "/home/dchoi/Pictures/wallpaper.png" "-m" "fill"
+spawn-at-startup "hypridle"
+spawn-at-startup "sunsetr"
+
+output "eDP-1" {
+	mode custom=true "2560x1600@60.000"
+	scale 1.15
+}
+
+output "DP-1" {
+    mode "3440x1440@120.000"
+    scale 1.0
+    position x=0 y=0
+}
+
+binds {
+	Super+B { spawn "flatpak" "run" "app.zen_browser.zen"; }
+	Super+T { spawn "alacritty"; }
+	Super+R { spawn "walker"; }
+	Super+Q { close-window; }
+	Super+F { set-column-width "100%"; }
+	Super+V { set-window-height "100%"; }
+	Super+Shift+F { fullscreen-window; }
+	Super+G { set-column-width "50%"; }
+	Super+E { spawn "env" "GTK_THEME=Adwaita:dark" "thunar"; }
+	Super+Shift+C { spawn "sh" "-c" "~/.config/hypr/scripts/screenshot.sh"; }
+	Super+Shift+R { spawn "sh" "-c" "~/.config/hypr/scripts/screenrecord.sh"; }
+
+	Super+L { focus-column-right; }
+	Super+H { focus-column-left; }
+	Super+J { focus-window-down; }
+	Super+K { focus-window-up; }
+	Super+U { focus-workspace-up; }
+	Super+D { focus-workspace-down; }
+
+	Super+Shift+H { move-column-left; }
+    Super+Shift+L { move-column-right; }
+
+	Super+Shift+Left  { consume-or-expel-window-left; }
+	Super+Shift+Right { consume-or-expel-window-right; }
+
+    Super+Shift+U { move-column-to-workspace-up; }
+    Super+Shift+D { move-column-to-workspace-down; }
+
+    Super+Alt+L { set-column-width "+5%"; }
+    Super+Alt+H { set-column-width "-5%"; }
+
+	Super+Alt+J { set-window-height "+5%"; }
+    Super+Alt+K { set-window-height "-5%"; }
+
+	Super+Shift+Space { toggle-window-floating; }
+	Super+Space { switch-focus-between-floating-and-tiling; }
+
+    Super+Ctrl+1 { move-column-to-workspace 1; }
+    Super+Ctrl+2 { move-column-to-workspace 2; }
+    Super+Ctrl+3 { move-column-to-workspace 3; }
+    Super+Ctrl+4 { move-column-to-workspace 4; }
+    Super+Ctrl+5 { move-column-to-workspace 5; }
+    Super+Ctrl+6 { move-column-to-workspace 6; }
+    Super+Ctrl+7 { move-column-to-workspace 7; }
+    Super+Ctrl+8 { move-column-to-workspace 8; }
+    Super+Ctrl+9 { move-column-to-workspace 9; }
+
+    Super+Shift+Slash { show-hotkey-overlay; }
+
+	Super+A { toggle-overview; }
+
+	    // Audio Volume Control
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "wpctl" "set-volume" "-l" "1" "@DEFAULT_AUDIO_SINK@" "5%+"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"; }
+    XF86AudioMute        allow-when-locked=true { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"; }
+    XF86AudioMicMute     allow-when-locked=true { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SOURCE@" "toggle"; }
+
+    // Screen Brightness Control
+    XF86MonBrightnessUp   allow-when-locked=true { spawn "brightnessctl" "-d" "intel_backlight" "set" "5%+"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "brightnessctl" "-d" "intel_backlight" "set" "5%-"; }
+
+    // Media Player Control
+    XF86AudioNext  allow-when-locked=true { spawn "playerctl" "next"; }
+    XF86AudioPrev  allow-when-locked=true { spawn "playerctl" "previous"; }
+    XF86AudioPlay  allow-when-locked=true { spawn "playerctl" "play-pause"; }
+    XF86AudioPause allow-when-locked=true { spawn "playerctl" "play-pause"; }
+}
+
+hotkey-overlay {
+    skip-at-startup
+}
+
+layout {
+	gaps 10
+}
+
+input {
+    touchpad {
+        natural-scroll
+		tap
+    }
+
+    mouse {
+        natural-scroll
+    }
+}
+
+window-rule {
+    match is-active=false
+    opacity 0.9
+
+	background-effect {
+        blur true
+    }
+}
+
+window-rule {
+    match app-id=r#"(?i)^(pavucontrol|blueman-manager|nm-connection-editor|thunar|org\.xfce\.thunar)$"#
+	match title=r#"(?i)^(Volume Control)$"#
+    open-floating true
+}
+
+window-rule {
+
+	geometry-corner-radius 8
+    clip-to-geometry true
+
+	focus-ring {
+		off
+	}
+
+}
+
+
+animations {
+    // off
+
+    // Slow down all animations by this factor. Values below 1 speed them up instead.
+    // slowdown 3.0
+
+    // Individual animations.
+
+    workspace-switch {
+        spring damping-ratio=1.0 stiffness=1000 epsilon=0.0001
+    }
+
+    window-open {
+        duration-ms 400
+        curve "ease-out-expo"
+    }
+
+    window-close {
+        duration-ms 400
+        curve "ease-out-quad"
+    }
+
+    horizontal-view-movement {
+        spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
+    }
+
+    window-movement {
+        spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
+    }
+
+    window-resize {
+        spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
+    }
+
+    config-notification-open-close {
+        spring damping-ratio=0.6 stiffness=1000 epsilon=0.001
+    }
+
+    exit-confirmation-open-close {
+        spring damping-ratio=0.6 stiffness=500 epsilon=0.01
+    }
+
+    screenshot-ui-open {
+        duration-ms 201
+        curve "ease-out-quad"
+    }
+
+    overview-open-close {
+        spring damping-ratio=1.0 stiffness=800 epsilon=0.0001
+    }
+
+    recent-windows-close {
+        spring damping-ratio=1.0 stiffness=800 epsilon=0.001
+    }
+}
