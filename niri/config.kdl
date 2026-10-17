@@ -1,18 +1,20 @@
+spawn-at-startup "sunsetr"
 spawn-at-startup "quickshell"
 spawn-at-startup "walker" "--gapplication-service"
 spawn-at-startup "elephant"
-spawn-at-startup "swaybg" "-i" "/home/dchoi/Pictures/wallpaper.png" "-m" "fill"
+spawn-at-startup "swaybg" "-i" "/home/dchoi/Pictures/wallpaper_mt.jpg" "-m" "fill"
+spawn-at-startup "gsettings" "set" "org.gnome.desktop.interface" "color-scheme" "prefer-dark"
+spawn-at-startup "gsettings" "set" "org.gnome.desktop.interface" "gtk-theme" "Adwaita-dark"
 spawn-at-startup "hypridle"
-spawn-at-startup "sunsetr"
 
 output "eDP-1" {
 	mode custom=true "2560x1600@60.000"
-	scale 1.15
+	scale 1
 }
 
 output "DP-1" {
     mode "3440x1440@120.000"
-    scale 1.0
+    scale 1
     position x=0 y=0
 }
 
@@ -22,10 +24,10 @@ binds {
 	Super+R { spawn "walker"; }
 	Super+Q { close-window; }
 	Super+F { set-column-width "100%"; }
-	Super+V { set-window-height "100%"; }
+	Super+V { reset-window-height; }
 	Super+Shift+F { fullscreen-window; }
 	Super+G { set-column-width "50%"; }
-	Super+E { spawn "env" "GTK_THEME=Adwaita:dark" "thunar"; }
+	Super+E { spawn "cosmic-files"; }
 	Super+Shift+C { spawn "sh" "-c" "~/.config/hypr/scripts/screenshot.sh"; }
 	Super+Shift+R { spawn "sh" "-c" "~/.config/hypr/scripts/screenrecord.sh"; }
 
@@ -89,8 +91,20 @@ hotkey-overlay {
     skip-at-startup
 }
 
+layer-rule {
+    place-within-backdrop true
+}
+
 layout {
-	gaps 10
+    gaps 10
+    background-color "transparent"
+	default-column-width { proportion 0.5; }
+}
+
+overview {
+    workspace-shadow {
+       off
+    }
 }
 
 input {
@@ -114,8 +128,8 @@ window-rule {
 }
 
 window-rule {
-    match app-id=r#"(?i)^(pavucontrol|blueman-manager|nm-connection-editor|thunar|org\.xfce\.thunar)$"#
-	match title=r#"(?i)^(Volume Control)$"#
+    match app-id=r#"(?i)^(pavucontrol|blueman-manager|nm-connection-editor|com.system76.CosmicFilesDialog)$"#
+    match title=r#"(?i)^(Volume Control)$"#
     open-floating true
 }
 
@@ -126,8 +140,17 @@ window-rule {
 
 	focus-ring {
 		off
+		// width 3
+        // active-color "#5e81ac"
+        // inactive-color "#00000000"
 	}
 
+}
+
+
+environment {
+    GTK_THEME "Adwaita:dark"
+    ADW_DISABLE_PORTAL "1"
 }
 
 

@@ -63,7 +63,7 @@ PanelWindow {
 			anchors.centerIn: parent
 			color: Theme.fgMain
 			font.pixelSize: 15
-			font.bold: true
+			font.bold: false
 			font.family: Theme.fontFamily
 			text: Qt.formatDateTime(clock.date, "hh:mm | ddd, MMM d")
 

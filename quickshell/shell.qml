@@ -310,12 +310,33 @@ Scope {
 			let aName = notif.appName ? notif.appName.toString() : "";
 			let resolvedApp = dEntry !== "" ? dEntry : aName;
 
+			// Resolve the icon once, here — the delegates only see ListModel
+			// roles, not the Notification object.
+			let iconSource = "";
+			let candidates = [];
+			if (notif.appIcon) candidates.push(notif.appIcon.toString());
+			if (dEntry !== "") { candidates.push(dEntry); candidates.push(dEntry.toLowerCase()); }
+			if (aName !== "") { candidates.push(aName); candidates.push(aName.toLowerCase()); }
+
+			for (let i = 0; i < candidates.length; i++) {
+				let p = Quickshell.iconPath(candidates[i], true);
+				if (p !== "") { iconSource = p; break; }
+			}
+
+			// image-data hint last: chat apps send the sender avatar here,
+			// which isn't the app icon.
+			if (iconSource === "" && notif.image) iconSource = notif.image.toString();
+
+			// console.log("notif icon:", JSON.stringify(aName), JSON.stringify(dEntry),
+			            // JSON.stringify(notif.appIcon), "->", JSON.stringify(iconSource));
+
 			let timeoutMs = root.defaultToastTimeout;
 
 			if (notif.urgency === NotificationUrgency.Critical) {
 				timeoutMs = 0;
 			} else if (notif.expireTimeout > 0) {
-				timeoutMs = notif.expireTimeout * 1000;
+				// timeoutMs = notif.expireTimeout * 1000;
+				timeoutMs = notif.expireTimeout;
 			}
 
 			notifHistoryModel.insert(0, {
@@ -323,7 +344,8 @@ Scope {
 				"summary": summaryText,
 				"body": bodyText,
 				"time": timeStr,
-				"appName": resolvedApp
+				"appName": resolvedApp,
+				"iconSource": iconSource
 			});
 
 			if (!root.dndEnabled) {
@@ -332,7 +354,8 @@ Scope {
 					"summary": summaryText,
 					"body": bodyText,
 					"appName": resolvedApp,
-					"timeoutMs": timeoutMs
+					"timeoutMs": timeoutMs,
+					"iconSource": iconSource
 				});
 			}
 		}

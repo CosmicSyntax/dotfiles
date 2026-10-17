@@ -2,7 +2,7 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property string fontFamily: "GoogleSansCode Nerd Font"
+    readonly property string fontFamily: "RedHatMono Nerd Font"
     
     // Optional: You can centralize your Nord theme palette here too
     readonly property color bgDark: "#2e3440"

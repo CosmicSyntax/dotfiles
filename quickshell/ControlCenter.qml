@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Quickshell
 import "components"
+import Quickshell.Widgets
 
 PopupWindow {
     id: ccWindow
@@ -243,13 +244,27 @@ PopupWindow {
                         anchors.fill: parent
                         anchors.margins: 10
                         spacing: 10
-                        Text {
-                            text: "󰂚"
-                            color: Theme.accent
-                            font.pixelSize: 16
-                            font.family: Theme.fontFamily
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
+						Item {
+							width: 36
+							height: 36
+							anchors.verticalCenter: parent.verticalCenter
+
+							IconImage {
+								id: histIcon
+								anchors.fill: parent
+								source: model.iconSource || ""
+								visible: source !== "" && status === Image.Ready
+							}
+
+							Text {
+								anchors.centerIn: parent
+								text: "󰂚"
+								color: Theme.accent
+								font.pixelSize: 16
+								font.family: Theme.fontFamily
+								visible: !histIcon.visible
+							}
+						}
                         Column {
                             width: parent.width - 70
                             anchors.verticalCenter: parent.verticalCenter
@@ -268,7 +283,7 @@ PopupWindow {
                                 }
                                 Text {
                                     text: model.time || ""
-                                    color: "#4c566a"
+                                    color: "#d8dee9"
                                     font.pixelSize: 10
                                     font.family: Theme.fontFamily
                                     anchors.verticalCenter: parent.verticalCenter
@@ -286,7 +301,7 @@ PopupWindow {
                         }
                         Text {
                             text: "󰅖"
-                            color: "#4c566a"
+                            color: "#d8dee9"
                             font.pixelSize: 14
                             font.family: Theme.fontFamily
                             anchors.verticalCenter: parent.verticalCenter

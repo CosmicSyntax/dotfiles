@@ -1,5 +1,7 @@
 import QtQuick
 import Quickshell
+import Quickshell.Widgets
+import Quickshell.Services.Notifications
 
 PanelWindow {
     id: toastWindow
@@ -12,8 +14,8 @@ PanelWindow {
         right: true
     }
     margins {
-        top: 54
-        right: 20
+        top: 5
+        right: 5
     }
 
     implicitWidth: 360
@@ -51,26 +53,31 @@ PanelWindow {
                     onTriggered: toastWindow.rootState.dismissToast(toastCard.model.notifId)
                 }
 
-                Row {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 12
+				Row {
+					anchors.fill: parent
+					anchors.margins: 12
+					spacing: 12
 
-                    Rectangle {
-                        width: 36
-                        height: 36
-                        radius: 8
-                        color: Theme.bgLight
-                        anchors.verticalCenter: parent.verticalCenter
+					Item {
+						id: iconContainer
+						width: 36
+						height: 36
 
-                        Text {
-                            anchors.centerIn: parent
-                            text: "󰂚"
-                            color: Theme.accent
-                            font.pixelSize: 18
-                            font.family: Theme.fontFamily
-                        }
-                    }
+						IconImage {
+							id: appIcon
+							anchors.fill: parent
+							source: toastCard.model.iconSource || ""
+							visible: source !== "" && status === Image.Ready
+						}
+
+						Text {
+							anchors.centerIn: parent
+							text: "󰂚"
+							font.pixelSize: 18
+							color: Theme.accent
+							visible: !appIcon.visible
+						}
+					}
 
                     Column {
                         id: contentCol

@@ -5,22 +5,22 @@ TERM = "xterm-256color"
 blinking = "Always"
 
 [font]
-size = 11
+size = 12.25
 
 [font.normal]
-family = "GoogleSansM Nerd Font"
+family = "RedHatMono Nerd Font"
 style = "Regular"
 
 [font.bold]
-family = "GoogleSansM Nerd Font"
+family = "RedHatMono Nerd Font"
 style = "Bold"
 
 [font.italic]
-family = "GoogleSansM Nerd Font"
+family = "RedHatMono Nerd Font"
 style = "Italic"
 
 [font.bold_italic]
-family = "GoogleSansM Nerd Font"
+family = "RedHatMono Nerd Font"
 style = "Bold Italic"
 
 [window]
@@ -28,9 +28,9 @@ startup_mode = "Windowed"
 decorations = "None"
 dynamic_padding = true
 
-[window.dimensions]
-columns = 175
-lines = 50
+# [window.dimensions]
+# columns = 175
+# lines = 50
 
 [window.padding]
 x = 5
