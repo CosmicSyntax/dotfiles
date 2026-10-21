@@ -23,22 +23,26 @@ alias open="xdg-open"
 alias ss="systemctl suspend"
 alias vim="nvim"
 alias vi="nvim"
-alias v="nvim"
+alias v="sudo ~/.local/nvim/bin/nvim"
 # cargo binary update
 alias cupdate="for pkg in \
-  eza \
+  \"eza --locked\" \
   ripgrep \
   tree-sitter-cli \
   bacon \
   cargo-audit \
   cargo-cache \
   cargo-llvm-cov \
+  cargo-show-asm \
   fd-find \
   just \
+  hurl \
+  sunsetr \
   websocat \
   bottom; \
 do cargo install \$pkg; done"
 alias cclean="cargo cache trim --limit 0M"
+alias makevim="make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX=$HOME/.local/nvim install"
 
 export EDITOR=nvim
 
